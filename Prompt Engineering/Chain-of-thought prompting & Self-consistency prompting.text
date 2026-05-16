@@ -1,0 +1,289 @@
+These two are closely related techniques for improving reasoning in LLMs, especially for **multi-step problems**.
+
+A senior framing:
+
+> Chain-of-thought (CoT) = “make the model reason step-by-step.”
+> Self-consistency = “run multiple reasoning paths and pick the most consistent answer.”
+
+---
+
+# 1. Chain-of-Thought (CoT) Prompting
+
+## 1.1 Definition
+
+Chain-of-thought prompting encourages the model to produce **intermediate reasoning steps before the final answer**.
+
+Instead of jumping directly to output, it “shows its work”.
+
+---
+
+## 1.2 Example
+
+### Standard prompting (bad for reasoning)
+
+```text id="c1"
+Q: A store has 3 apples. You buy 2. How many are left?
+A:
+```
+
+Model may directly answer.
+
+---
+
+### Chain-of-thought prompting
+
+```text id="c2"
+Q: A store has 3 apples. You buy 2. How many are left?
+
+Let’s think step by step:
+```
+
+Model generates:
+
+* start with 3 apples
+* remove 2 apples
+* result = 1 apple
+
+---
+
+## 1.3 Why CoT works
+
+It improves performance because:
+
+* breaks complex problems into smaller steps
+* reduces shortcut errors
+* activates intermediate reasoning patterns learned in training
+
+---
+
+## 1.4 When it helps most
+
+✔ math problems
+✔ logic puzzles
+✔ multi-hop reasoning
+✔ code reasoning
+✔ planning tasks
+
+---
+
+## 1.5 Variants
+
+### 1.5.1 Zero-shot CoT
+
+Just add instruction:
+
+> “Let’s think step by step.”
+
+---
+
+### 1.5.2 Few-shot CoT
+
+Provide examples with reasoning steps.
+
+---
+
+## 1.6 Limitation
+
+❌ reasoning may still be wrong but verbose
+❌ increases token usage
+❌ not guaranteed correctness
+
+---
+
+# 2. Self-Consistency Prompting
+
+## 2.1 Definition
+
+Self-consistency improves CoT by:
+
+> generating multiple reasoning paths and selecting the most consistent final answer.
+
+Instead of trusting one chain, you **sample many chains**.
+
+---
+
+## 2.2 Example
+
+You ask the same question multiple times with randomness:
+
+```text id="s1"
+Run 1 → Answer: 42
+Run 2 → Answer: 40
+Run 3 → Answer: 42
+Run 4 → Answer: 42
+```
+
+Final answer = **most frequent result → 42**
+
+---
+
+## 2.3 Why it works
+
+LLMs are probabilistic:
+
+* different reasoning paths exist
+* some are correct, some are noisy
+
+Self-consistency:
+
+> treats reasoning like sampling from a distribution
+
+---
+
+## 2.4 Formal view
+
+y^* = \arg\max_y \sum_{i=1}^{n} \mathbb{1}(y_i = y)
+
+Where:
+
+* ( y_i ) = answer from each reasoning path
+* final answer = majority vote
+
+---
+
+## 2.5 Steps in practice
+
+1. Sample multiple CoT outputs (temperature > 0)
+2. Extract final answers
+3. Aggregate (majority vote / scoring)
+4. Return best answer
+
+---
+
+## 2.6 When it works best
+
+✔ math reasoning
+✔ symbolic logic
+✔ multi-step QA
+✔ ambiguous problems
+
+---
+
+## 2.7 Limitations
+
+❌ expensive (multiple LLM calls)
+❌ still depends on model quality
+❌ does not fix systematic reasoning errors
+
+---
+
+# 3. Key difference
+
+| Aspect     | Chain-of-Thought      | Self-Consistency         |
+| ---------- | --------------------- | ------------------------ |
+| Idea       | single reasoning path | multiple reasoning paths |
+| Output     | one explanation       | aggregated answer        |
+| Cost       | low                   | high                     |
+| Accuracy   | medium                | higher                   |
+| Robustness | low-medium            | high                     |
+
+---
+
+# 4. Intuition
+
+## CoT = “think step-by-step once”
+
+## Self-consistency = “ask many thinkers and vote”
+
+---
+
+# 5. Why self-consistency improves over CoT
+
+Because LLM reasoning is:
+
+* stochastic
+* path-dependent
+* sensitive to prompt phrasing
+
+So:
+
+> averaging over reasoning paths reduces variance
+
+---
+
+# 6. Production usage patterns
+
+---
+
+## 6.1 CoT in production
+
+Used when:
+
+* latency matters
+* cost must be low
+* moderate accuracy is sufficient
+
+---
+
+## 6.2 Self-consistency in production
+
+Used when:
+
+* correctness is critical (math, finance, legal reasoning)
+* cost is acceptable
+* system can parallelize calls
+
+---
+
+# 7. Hybrid approaches (modern systems)
+
+Many systems combine:
+
+* CoT + retrieval (RAG)
+* CoT + tool use
+* self-consistency + reranking models
+* self-consistency + critic agents
+
+---
+
+# 8. Common pitfalls
+
+## Chain-of-thought
+
+❌ encourages hallucinated reasoning
+❌ verbose but wrong steps
+
+---
+
+## Self-consistency
+
+❌ expensive
+❌ can converge to wrong majority
+❌ needs good sampling strategy
+
+---
+
+# 9. Advanced insight (senior level)
+
+* CoT improves **bias**
+* Self-consistency reduces **variance**
+
+So together:
+
+> CoT structures reasoning, self-consistency stabilizes it statistically.
+
+---
+
+# 10. Senior-level interview answer
+
+Chain-of-thought prompting is a technique that encourages language models to generate intermediate reasoning steps before producing a final answer, improving performance on multi-step reasoning tasks by decomposing problems into simpler subproblems.
+
+Self-consistency prompting extends this approach by sampling multiple independent chain-of-thought reasoning paths and aggregating the final answers, typically using majority voting. This reduces variance in model outputs and improves robustness by leveraging the stochastic nature of LLM decoding. Together, these methods significantly enhance reasoning reliability in complex tasks such as mathematical problem-solving and logical inference.
+::`
+
+---
+
+# 11. Final intuition
+
+| Technique        | Analogy                         |
+| ---------------- | ------------------------------- |
+| CoT              | one person solving step-by-step |
+| Self-consistency | many people solving and voting  |
+
+---
+
+If you want, I can go deeper into:
+
+* how CoT breaks in **agentic systems**
+* or how self-consistency is used in **LLM judge + reranking pipelines**
+* or how modern systems replace CoT with **latent reasoning / tool-based reasoning (GPT-style agents)**

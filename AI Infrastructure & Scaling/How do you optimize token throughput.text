@@ -1,0 +1,148 @@
+Optimizing **token throughput** is one of the most important problems in LLM inference systems. At a senior level, you don’t just “make the model faster” — you optimize across **GPU utilization, batching strategy, memory efficiency, decoding algorithm, and system architecture**.
+
+Let’s break it down like a production inference engineer.
+
+---
+
+# 🧠 1. What is token throughput?
+
+Token throughput =
+
+> **number of tokens generated per second per GPU (or cluster)**
+
+You optimize it for:
+
+* Lower cost per request
+* Higher QPS
+* Better GPU utilization
+
+---
+
+# ⚡ 2. The biggest bottleneck: GPU underutilization
+
+Most inefficiencies come from:
+
+* Small batch sizes
+* Idle GPU during decoding
+* Memory bandwidth bottlenecks
+* Poor scheduling of requests
+
+So everything below targets:
+
+> “Keep GPU busy at all times”
+
+---
+
+# 🚀 3. Continuous batching (MOST IMPORTANT)
+
+Instead of waiting for a full batch:
+
+### ❌ Static batching
+
+* Wait for N requests
+* Run once
+* GPU idle between batches
+
+### ✅ Continuous batching (used in vLLM)
+
+* New requests join running batch
+* Tokens are processed in a rolling schedule
+
+```text
+Time →
+Request A: ██████████
+Request B:   ██████████
+Request C:     ██████████
+```
+
+👉 Result: GPU is never idle
+
+---
+
+# 🧩 4. KV cache optimization (critical for LLMs)
+
+Each token depends on previous tokens:
+
+P(x_t \mid x_{<t})
+
+So we store:
+
+* Keys (K)
+* Values (V)
+
+### Optimizations:
+
+* Reuse KV cache across tokens
+* Avoid recomputation
+* Use memory-efficient layouts (PagedAttention in vLLM)
+
+👉 This alone can give **2–10x throughput improvement**
+
+---
+
+# ⚙️ 5. Batch size tuning (GPU sweet spot)
+
+There is always an optimal batch size:
+
+* Too small → GPU idle
+* Too large → memory pressure + latency spikes
+
+You tune:
+
+* max_batch_tokens
+* max_concurrent_requests
+* dynamic batching window
+
+👉 Goal: hit **~70–90% GPU utilization**
+
+---
+
+# 🔥 6. Model quantization
+
+Reduce precision:
+
+| Format                | Effect                             |
+| --------------------- | ---------------------------------- |
+| FP32                  | slow, heavy                        |
+| FP16                  | standard                           |
+| BF16                  | stable training/inference          |
+| INT8                  | faster                             |
+| 4-bit (GGUF/GPTQ/AWQ) | very fast, slight quality tradeoff |
+
+👉 Less memory bandwidth → more tokens/sec
+
+---
+
+# 🧠 7. Decoding optimizations
+
+## 7.1 Speculative decoding (huge win)
+
+* Small “draft model” generates tokens
+* Large model verifies them
+
+👉 2–5× throughput improvement in many cases
+
+---
+
+## 7.2 Reduce decoding steps
+
+* Early stopping
+* Lower max tokens
+* Stop sequences
+
+---
+
+# ⚡ 8. Sequence length optimization
+
+Long context = expensive attention
+
+Cost grows roughly:
+
+How continuous batching is scheduled internally (token-level scheduler)
+
+* 🧠 PagedAttention memory layout internals
+* 🚀 Speculative decoding math + speedups
+* 💰 Real benchmarking: tokens/sec per H100 vs A100
+* 🧩 Full production LLM serving architecture (OpenAI-style)
+
+Just tell me 👍

@@ -1,0 +1,364 @@
+Evaluating prompts is basically **testing whether a prompt reliably produces the right behavior from a probabilistic model**.
+
+A senior framing:
+
+> Prompt evaluation = measuring **quality, stability, and cost of model behavior under a fixed instruction set**.
+
+If prompt versioning is “code management,” then prompt evaluation is “unit + integration testing for LLM behavior.”
+
+---
+
+# 1. What you are actually evaluating
+
+A prompt is not just text—you evaluate a **behavioral system**:
+
+* correctness
+* reasoning quality
+* format compliance
+* tool usage accuracy
+* hallucination rate
+* robustness to input variation
+* latency + token cost
+
+---
+
+# 2. Core evaluation types
+
+There are 5 main categories:
+
+---
+
+## 2.1 Task accuracy evaluation (gold standard testing)
+
+You define expected outputs.
+
+Example:
+
+```text id="t1"
+Input: "Paris is capital of France"
+Expected: "Paris"
+```
+
+Then measure:
+
+* exact match
+* semantic match
+* F1 score (for extraction tasks)
+
+✔ best for structured outputs
+✔ best for classification / RAG QA
+
+---
+
+## 2.2 LLM-as-judge evaluation
+
+Use another model to grade outputs:
+
+```text id="j1"
+Rate answer quality from 1–10 based on correctness and clarity
+```
+
+Judges:
+
+* correctness
+* reasoning quality
+* completeness
+
+✔ scalable
+✔ used in production
+❌ can be biased
+
+---
+
+## 2.3 Pairwise comparison (A/B evaluation)
+
+Compare two prompts:
+
+```text id="a1"
+Prompt A vs Prompt B → which is better?
+```
+
+Metrics:
+
+* win rate
+* preference score
+
+✔ very reliable for prompt tuning
+✔ reduces scoring bias
+
+---
+
+## 2.4 Structural validation (schema-based evaluation)
+
+Check if output follows rules:
+
+* valid JSON
+* correct schema
+* required fields present
+* tool call format correct
+
+✔ critical for agents + function calling
+
+---
+
+## 2.5 Behavioral robustness testing
+
+Test edge cases:
+
+* adversarial inputs
+* ambiguous queries
+* long context inputs
+* noisy retrieval chunks
+
+Goal:
+
+> does prompt still behave correctly under stress?
+
+---
+
+# 3. Key evaluation metrics
+
+---
+
+## 3.1 Accuracy
+
+* correctness of final answer
+
+---
+
+## 3.2 Faithfulness (especially RAG)
+
+* is answer grounded in context?
+
+---
+
+## 3.3 Hallucination rate
+
+* % of unsupported claims
+
+---
+
+## 3.4 Format compliance
+
+* valid JSON / schema adherence
+
+---
+
+## 3.5 Latency
+
+* time per response
+
+---
+
+## 3.6 Token efficiency
+
+\text{Efficiency} = \frac{\text{Accuracy}}{\text{Tokens used}}
+
+---
+
+## 3.7 Stability
+
+* does output change with small input changes?
+
+---
+
+# 4. Golden dataset evaluation (MOST IMPORTANT)
+
+You create a fixed dataset:
+
+```text id="g1"
+Q1 → expected A1
+Q2 → expected A2
+Q3 → expected A3
+```
+
+Then run:
+
+* prompt v1
+* prompt v2
+* compare results
+
+✔ most reliable evaluation method
+✔ used in production systems
+
+---
+
+# 5. Offline vs online evaluation
+
+---
+
+## 5.1 Offline evaluation
+
+Before deployment:
+
+* test dataset
+* simulation
+* synthetic inputs
+
+✔ safe
+✔ repeatable
+
+---
+
+## 5.2 Online evaluation
+
+After deployment:
+
+* real user traffic
+* feedback loops
+* implicit signals (clicks, edits)
+
+✔ reflects reality
+❌ noisy
+
+---
+
+# 6. RAG-specific prompt evaluation
+
+For RAG prompts, evaluate:
+
+---
+
+## 6.1 Retrieval quality
+
+* did prompt guide correct retrieval?
+
+---
+
+## 6.2 Answer grounding
+
+* is response supported by context?
+
+---
+
+## 6.3 Context utilization
+
+* did model ignore useful chunks?
+
+---
+
+## 6.4 Hallucination rate
+
+* answers not present in context
+
+---
+
+# 7. Agentic system evaluation (advanced)
+
+For agent prompts:
+
+You evaluate:
+
+* tool selection correctness
+* reasoning steps validity
+* execution success rate
+* loop frequency (bad sign)
+* cost per task
+
+---
+
+# 8. Evaluation pipeline (production setup)
+
+```text id="p1"
+Prompt Version
+   ↓
+Test Dataset
+   ↓
+LLM Execution
+   ↓
+Evaluation Layer
+   ├── rule-based checks
+   ├── schema validation
+   ├── LLM judge
+   ↓
+Metrics Store
+   ↓
+Dashboards + Comparison
+```
+
+---
+
+# 9. Prompt regression testing (critical concept)
+
+Whenever prompt changes:
+
+You must ensure:
+
+* no degradation in accuracy
+* no increase in hallucinations
+* no format breakage
+* no cost explosion
+
+---
+
+# 10. Common evaluation mistakes
+
+❌ only manual checking
+❌ no baseline comparison
+❌ no adversarial testing
+❌ evaluating on too small dataset
+❌ no separation of RAG vs prompt issues
+❌ relying only on LLM judge
+
+---
+
+# 11. Advanced techniques
+
+---
+
+## 11.1 Confidence-weighted evaluation
+
+Weight outputs by model confidence or agreement.
+
+---
+
+## 11.2 Self-consistency evaluation
+
+Check if multiple runs agree.
+
+---
+
+## 11.3 Shadow evaluation
+
+Run new prompt in production but don’t show users.
+
+---
+
+## 11.4 Drift monitoring
+
+Detect if prompt performance degrades over time.
+
+---
+
+# 12. Key insight
+
+> Prompt evaluation is not about one correct answer—it’s about statistical reliability of behavior.
+
+---
+
+# 13. Senior-level interview answer
+
+Prompt evaluation involves systematically measuring the performance of prompt-driven LLM systems across dimensions such as accuracy, format compliance, robustness, hallucination rate, and cost efficiency. Common evaluation methodologies include golden dataset testing, LLM-as-judge scoring, pairwise A/B comparisons, and structured output validation.
+
+In production systems, prompts are evaluated using offline benchmark datasets before deployment and continuously monitored online using real-world traffic. For agentic and RAG systems, additional metrics such as tool usage accuracy, retrieval faithfulness, and context grounding are critical. Evaluation pipelines typically combine rule-based checks, model-based grading, and statistical analysis to ensure reliable and regression-free prompt updates.
+::`
+
+---
+
+# 14. Final intuition
+
+| Method            | What it checks     |
+| ----------------- | ------------------ |
+| golden dataset    | correctness        |
+| A/B testing       | relative quality   |
+| LLM judge         | subjective quality |
+| schema checks     | structure          |
+| adversarial tests | robustness         |
+
+---
+
+If you want, I can go deeper into:
+
+* how to build a **full prompt evaluation CI/CD pipeline**
+* or how big companies do **automatic prompt optimization (prompt tuning without training)**
+* or how evaluation differs for **agents vs RAG vs tool-using systems (very senior topic)**

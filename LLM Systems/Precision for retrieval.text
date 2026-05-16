@@ -1,0 +1,324 @@
+Precision and recall for retrieval are fundamental metrics in **RAG systems, search engines, and vector databases**, because they measure how well your retriever is finding the *right context before the LLM even generates an answer*.
+
+A senior framing:
+
+> Retrieval metrics measure whether your system is bringing back the **right information (precision)** and **enough of the right information (recall)**.
+
+---
+
+# 1. Basic idea in retrieval
+
+For a query, your retriever returns a set of documents/chunks.
+
+You compare it to a **ground-truth relevant set**.
+
+---
+
+## Key sets
+
+* **Retrieved set (R)** → what your system returned
+* **Relevant set (G)** → what *should* have been returned
+
+---
+
+# 2. Precision
+
+## 2.1 Definition
+
+> Of everything retrieved, how much is actually relevant?
+
+\text{Precision} = \frac{|R \cap G|}{|R|}
+
+---
+
+## 2.2 Intuition
+
+Precision answers:
+
+> “Did I return mostly correct context, or a lot of noise?”
+
+---
+
+## 2.3 Example
+
+Retrieved 5 chunks:
+
+* 3 are relevant
+* 2 are irrelevant
+
+```text id="p1"
+Precision = 3/5 = 0.6
+```
+
+---
+
+## 2.4 High precision means
+
+✔ low noise
+✔ better LLM focus
+✔ reduced hallucination risk
+
+---
+
+## 2.5 Low precision means
+
+❌ irrelevant chunks
+❌ confused LLM
+❌ wasted context window
+
+---
+
+# 3. Recall
+
+## 3.1 Definition
+
+> Of all relevant documents, how many did we retrieve?
+
+\text{Recall} = \frac{|R \cap G|}{|G|}
+
+---
+
+## 3.2 Intuition
+
+Recall answers:
+
+> “Did I retrieve enough of the important information?”
+
+---
+
+## 3.3 Example
+
+Relevant chunks = 10
+Retrieved relevant chunks = 7
+
+```text id="r1"
+Recall = 7/10 = 0.7
+```
+
+---
+
+## 3.4 High recall means
+
+✔ system is unlikely to miss key facts
+✔ good coverage of knowledge
+
+---
+
+## 3.5 Low recall means
+
+❌ missing important context
+❌ LLM hallucination risk increases
+❌ incomplete answers
+
+---
+
+# 4. Precision vs Recall tradeoff
+
+This is the most important concept.
+
+| Strategy         | Effect                         |
+| ---------------- | ------------------------------ |
+| increase top-k   | higher recall, lower precision |
+| strict filtering | higher precision, lower recall |
+
+---
+
+## Intuition
+
+* Precision = “quality of retrieved results”
+* Recall = “coverage of retrieved results”
+
+---
+
+# 5. Why this matters in RAG systems
+
+In RAG:
+
+```text id="rag1"
+Query → Retriever → LLM → Answer
+```
+
+If retrieval is bad:
+
+* high precision → LLM gets clean but possibly incomplete context
+* high recall → LLM gets everything but noisy context
+
+---
+
+# 6. Top-k retrieval impact
+
+If you set:
+
+* k = 3 → high precision, low recall
+* k = 20 → high recall, lower precision
+
+---
+
+# 7. Precision/Recall in vector search
+
+Used to evaluate:
+
+* embeddings quality
+* ANN index performance (FAISS, HNSW)
+* rerankers
+
+---
+
+# 8. Recall@k (most used in production)
+
+Instead of full recall:
+
+\text{Recall@k} = \frac{\text{relevant docs in top-k}}{\text{total relevant docs}}
+
+---
+
+## Example
+
+* relevant docs = 10
+* top-5 retrieved contains 6 relevant docs (impossible, so capped at 5)
+
+```text id="rk1"
+Recall@5 = 4/10 = 0.4
+```
+
+---
+
+# 9. Precision@k
+
+\text{Precision@k} = \frac{\text{relevant docs in top-k}}{k}
+
+---
+
+## Example
+
+Top-5 results:
+
+* 3 relevant
+* 2 irrelevant
+
+```text id="pk1"
+Precision@5 = 3/5 = 0.6
+```
+
+---
+
+# 10. Real-world interpretation
+
+| Metric    | Meaning in RAG               |
+| --------- | ---------------------------- |
+| Precision | “Is my context clean?”       |
+| Recall    | “Did I miss important info?” |
+
+---
+
+# 11. Tradeoff in LLM systems
+
+---
+
+## High precision systems
+
+* reranked top-k
+* strict filtering
+* good for customer support bots
+
+✔ safe answers
+❌ may miss rare facts
+
+---
+
+## High recall systems
+
+* larger top-k
+* broader retrieval
+* good for research assistants
+
+✔ complete answers
+❌ noisy context
+
+---
+
+# 12. How production systems improve both
+
+---
+
+## 12.1 Hybrid search
+
+* BM25 + vector search
+
+---
+
+## 12.2 Reranking
+
+* first retrieve high recall
+* then filter for precision
+
+---
+
+## 12.3 Chunk optimization
+
+* better chunking improves both metrics
+
+---
+
+## 12.4 Query rewriting
+
+* improves recall by expanding query intent
+
+---
+
+# 13. Evaluation pipeline
+
+```text id="eval1"
+Query
+ ↓
+Retriever
+ ↓
+Top-k results
+ ↓
+Compare with ground truth
+ ↓
+Compute precision/recall metrics
+```
+
+---
+
+# 14. Common mistakes
+
+❌ evaluating only LLM output (not retrieval)
+❌ ignoring recall (very dangerous in RAG)
+❌ using wrong ground truth definition
+❌ not separating retrieval vs generation errors
+
+---
+
+# 15. Key insight
+
+> Retrieval quality sets the upper bound of LLM performance.
+
+Even the best LLM cannot fix poor recall.
+
+---
+
+# 16. Senior-level interview answer
+
+Precision and recall in retrieval systems measure the quality of retrieved documents relative to a ground-truth relevant set. Precision is the fraction of retrieved documents that are relevant, while recall is the fraction of relevant documents that are successfully retrieved.
+
+In RAG and search systems, these metrics are often computed at top-k (Precision@k and Recall@k) to evaluate ranking performance. Precision reflects noise in retrieved context, while recall measures coverage of relevant information. A key tradeoff exists between the two, and production systems typically use hybrid search, reranking, and query expansion techniques to balance them effectively.
+::`
+
+---
+
+# 17. Final intuition
+
+| Metric    | Question it answers                  |
+| --------- | ------------------------------------ |
+| precision | “Did I retrieve mostly useful info?” |
+| recall    | “Did I retrieve all important info?” |
+
+---
+
+If you want, I can go deeper into:
+
+* how to compute **recall without labeled datasets (hard in real systems)**
+* or how rerankers optimize **precision vs recall tradeoffs**
+* or how ANN indexing (HNSW/FAISS) impacts these metrics in production RAG systems

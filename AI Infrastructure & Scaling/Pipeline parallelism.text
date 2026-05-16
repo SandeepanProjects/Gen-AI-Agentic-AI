@@ -1,0 +1,213 @@
+Pipeline parallelism is a **model-parallel strategy where you split a neural network by layers across multiple GPUs**, instead of splitting individual matrix operations (like tensor parallelism).
+
+Think of it as:
+
+> “Each GPU owns a different *stage* of the model, like an assembly line.”
+
+---
+
+# 🧠 1. Core Idea (Simple Mental Model)
+
+Instead of:
+
+* One GPU runs the whole model
+  or
+* Splitting matrices inside a layer
+
+You do:
+
+> GPU 1 → Layer 1–N
+> GPU 2 → Layer N+1–M
+> GPU 3 → Layer M+1–K
+
+So the model becomes a **pipeline of stages**.
+
+---
+
+# ⚙️ 2. Visual Intuition
+
+### Without pipeline parallelism:
+
+```
+GPU 1: [L1 → L2 → L3 → L4 → L5 → L6 → L7 → L8]
+```
+
+### With pipeline parallelism (4 GPUs):
+
+```
+GPU 1: [L1, L2]
+GPU 2: [L3, L4]
+GPU 3: [L5, L6]
+GPU 4: [L7, L8]
+```
+
+---
+
+# 🚀 3. How data flows (critical concept)
+
+Input moves through GPUs like an assembly line:
+
+```
+Input → GPU1 → GPU2 → GPU3 → GPU4 → Output
+```
+
+Each GPU processes its assigned layers and passes activations forward.
+
+---
+
+# 🔁 4. The key problem: “Pipeline bubble”
+
+If you process one input at a time:
+
+* GPU2, GPU3, GPU4 are idle while GPU1 works
+* Very inefficient
+
+So we use **micro-batching**.
+
+---
+
+# 📦 5. Micro-batching (how it actually works in production)
+
+Instead of 1 large batch:
+
+You split into small chunks:
+
+```
+Batch = [x1, x2, x3, x4]
+
+Microbatches:
+[x1], [x2], [x3], [x4]
+```
+
+Then pipeline them:
+
+```
+Time →
+
+GPU1: [x1] [x2] [x3] [x4]
+GPU2:     [x1] [x2] [x3] [x4]
+GPU3:         [x1] [x2] [x3] [x4]
+GPU4:             [x1] [x2] [x3] [x4]
+```
+
+This keeps GPUs busy.
+
+---
+
+# 📐 6. Mathematical view (simple)
+
+Each layer applies:
+
+h_{i+1} = f_i(h_i)
+
+Pipeline parallelism distributes functions:
+
+* GPU1: (f_1, f_2)
+* GPU2: (f_3, f_4)
+* GPU3: (f_5, f_6)
+* GPU4: (f_7, f_8)
+
+---
+
+# ⚡ 7. Why pipeline parallelism is used
+
+## ✅ Pros
+
+* Can train/serve **very large models**
+* Lower memory pressure per GPU
+* Simple to implement vs tensor parallelism
+* Works well with long models (many layers)
+
+---
+
+## ❌ Cons
+
+* Pipeline “bubbles” (idle time)
+* Higher latency per request
+* Harder to optimize for real-time inference
+
+---
+
+# 🧠 8. Pipeline vs Tensor Parallelism (VERY IMPORTANT)
+
+| Feature        | Pipeline Parallelism | Tensor Parallelism |
+| -------------- | -------------------- | ------------------ |
+| Splitting type | Across layers        | Within layers      |
+| Communication  | Low                  | High               |
+| Latency        | Higher               | Lower              |
+| Throughput     | Medium               | High               |
+| Complexity     | Medium               | High               |
+| Best for       | Very deep models     | Very large layers  |
+
+---
+
+# 🚀 9. Real production usage
+
+Pipeline parallelism is commonly used in:
+
+* Large LLM training (GPT-scale models)
+* Inference for very deep transformers
+* Combined with tensor parallelism (hybrid systems)
+
+Used in:
+
+* DeepSpeed
+* NVIDIA Megatron-LM stack
+* Large distributed inference clusters
+
+---
+
+# 🧩 10. Hybrid Parallelism (real-world systems)
+
+At scale, you don’t choose one—you combine:
+
+### Example:
+
+* Tensor parallelism → split inside layers
+* Pipeline parallelism → split across layers
+* Data parallelism → replicate across GPUs
+
+This is called:
+
+> 🔥 3D parallelism
+
+Used for 70B–1T parameter models.
+
+---
+
+# 🧠 11. Senior-level intuition
+
+> Pipeline parallelism is about “dividing the model vertically (layers)”
+> while tensor parallelism is about “dividing it horizontally (within layers).”
+
+Pipeline parallelism trades:
+
+* **memory efficiency ↑**
+* for **latency ↑ and complexity of scheduling**
+
+---
+
+# ⚡ 12. When to use pipeline parallelism
+
+Use it when:
+
+* Model is too deep to fit on one GPU
+* You can tolerate batching/micro-batching
+* Training or large-scale inference clusters
+
+Avoid when:
+
+* Low-latency chat applications (use tensor + batching instead)
+* Small models (<7B)
+* Real-time single-request systems
+
+---
+
+If you want next-level depth, I can explain:
+
+* ⚡ 1F1B scheduling (forward-forward-backward pipeline)
+* 🧠 Megatron-LM implementation details
+* 🚀 Hybrid tensor + pipeline + sequence parallelism
+* 💰 How GPT-scale training clusters actually partition 1T models
+
+Just tell me 👍

@@ -1,0 +1,392 @@
+Detecting regressions in LLM systems is about answering one question:
+
+> “Did system quality get worse after a change (prompt, model, retriever, or tools)?”
+
+A senior framing:
+
+> Regression detection = continuously comparing new system behavior against a **stable baseline using golden datasets + production signals + statistical thresholds**.
+
+---
+
+# 1. What counts as a regression?
+
+A regression is any **unexpected degradation in system performance**, such as:
+
+* lower answer accuracy
+* higher hallucination rate
+* worse retrieval quality
+* broken tool calls
+* higher latency or cost
+* degraded user satisfaction
+
+Even if model “looks smarter” overall.
+
+---
+
+# 2. Where regressions come from
+
+Common sources:
+
+* prompt changes
+* model upgrades (GPT-4 → GPT-4.1, etc.)
+* embedding model updates
+* retriever / index changes (FAISS, HNSW tuning)
+* reranker updates
+* tool schema changes
+* memory logic changes
+
+---
+
+# 3. Core regression detection approaches
+
+There are 5 main layers.
+
+---
+
+# 3.1 Golden dataset regression testing (primary method)
+
+This is the most important mechanism.
+
+## Process:
+
+```text id="g1"
+Old system (baseline) vs New system
+         ↓
+Run same golden dataset
+         ↓
+Compare metrics
+```
+
+---
+
+## Metrics compared:
+
+* accuracy
+* recall@k (RAG)
+* hallucination rate
+* tool success rate
+* format compliance
+
+---
+
+## Regression signal:
+
+> New score < baseline score beyond threshold
+
+Example:
+
+* baseline accuracy: 87%
+* new accuracy: 82%
+
+→ regression detected
+
+---
+
+# 3.2 Statistical significance testing
+
+Not every drop is meaningful.
+
+You test:
+
+* is the difference statistically significant?
+* or just noise?
+
+Common methods:
+
+* confidence intervals
+* bootstrap sampling
+* t-tests (for large datasets)
+
+---
+
+# 3.3 A/B testing in production
+
+```text id="a1"
+Users split:
+- 50% old system
+- 50% new system
+```
+
+Compare:
+
+* task success rate
+* user satisfaction
+* retention
+* latency
+
+---
+
+## Regression signal:
+
+* statistically significant drop in KPIs
+
+---
+
+# 3.4 Shadow evaluation
+
+New system runs silently:
+
+* no user impact
+* outputs logged and compared
+
+Used for:
+
+* early detection
+* safe rollout validation
+
+---
+
+# 3.5 Continuous monitoring (online regression detection)
+
+Track live metrics:
+
+* error rate spikes
+* tool failure spikes
+* hallucination signals
+* latency degradation
+
+---
+
+## Example alerts:
+
+* +15% tool failures → regression
+* -10% retrieval recall → index regression
+* +20% cost per query → efficiency regression
+
+---
+
+# 4. Types of regressions in LLM systems
+
+---
+
+## 4.1 Accuracy regression
+
+* worse answers on same dataset
+
+---
+
+## 4.2 Retrieval regression (RAG)
+
+* lower recall@k
+* worse context relevance
+
+---
+
+## 4.3 Tool regression (agents)
+
+* wrong tool selection
+* failed API calls
+* broken schemas
+
+---
+
+## 4.4 Hallucination regression
+
+* more unsupported claims
+
+---
+
+## 4.5 Latency regression
+
+* slower responses
+* higher P95 latency
+
+---
+
+## 4.6 Cost regression
+
+* more tokens
+* more tool calls
+
+---
+
+## 4.7 Safety regression
+
+* increased jailbreak success
+* prompt injection vulnerability
+
+---
+
+# 5. Regression detection pipeline (production architecture)
+
+```text id="p1"
+        Code/Prompt Change
+                 ↓
+        CI Evaluation System
+                 ↓
+     Golden Dataset Execution
+                 ↓
+        Metric Comparison
+        ├── baseline
+        ├── new system
+                 ↓
+        Statistical Test
+                 ↓
+        Regression Decision
+                 ↓
+   Block / Allow Deployment
+```
+
+---
+
+# 6. Key techniques used in production
+
+---
+
+## 6.1 Baseline locking
+
+You always compare against:
+
+* last stable version
+* not just previous commit
+
+---
+
+## 6.2 Multi-metric regression detection
+
+Don’t rely on one metric.
+
+Example:
+
+* accuracy ↓
+* latency ↑
+* hallucination ↑
+
+Even one can trigger regression flag.
+
+---
+
+## 6.3 Weighted scoring
+
+Some metrics matter more:
+
+```text id="w1"
+Total Score =
+0.5 * accuracy +
+0.2 * retrieval +
+0.2 * tool success +
+0.1 * latency
+```
+
+---
+
+## 6.4 Slice-based regression analysis
+
+Instead of overall score:
+
+Check subsets:
+
+* hard queries
+* long context queries
+* tool-heavy queries
+* domain-specific queries
+
+---
+
+## 6.5 Drift detection
+
+Detect distribution changes:
+
+* embeddings drift
+* query pattern drift
+* retrieval shift
+
+---
+
+# 7. Advanced regression detection (senior level)
+
+---
+
+## 7.1 Confidence interval overlap
+
+If:
+
+* old CI = [85, 89]
+* new CI = [80, 84]
+
+→ clear regression
+
+---
+
+## 7.2 Bootstrap evaluation
+
+Resample dataset to estimate stability.
+
+---
+
+## 7.3 LLM judge drift detection
+
+If judge scores shift unexpectedly → possible regression or evaluator bias.
+
+---
+
+## 7.4 Canary deployment detection
+
+Deploy to small traffic first:
+
+* monitor metrics
+* compare against control group
+
+---
+
+# 8. Common pitfalls
+
+❌ only checking final accuracy
+❌ ignoring retrieval/tool metrics
+❌ no baseline locking
+❌ no statistical testing
+❌ evaluating too small dataset
+❌ ignoring segment-level regressions
+
+---
+
+# 9. Real-world example
+
+### Change:
+
+Updated embedding model
+
+### Observed:
+
+* retrieval recall@5 dropped from 0.78 → 0.70
+* downstream accuracy dropped 6%
+
+### Root cause:
+
+* embedding semantic shift reduced neighbor quality
+
+→ regression detected via RAG eval pipeline
+
+---
+
+# 10. Key insight
+
+> Regression detection in LLM systems is multi-layered: you must monitor not just outputs, but the entire pipeline (retrieval → reasoning → tools → system behavior).
+
+---
+
+# 11. Senior-level interview answer
+
+Regression detection in LLM systems involves identifying performance degradation after changes to prompts, models, retrievers, or tools. This is typically achieved through offline evaluation on golden datasets, where new system versions are compared against a stable baseline across metrics such as accuracy, retrieval recall, hallucination rate, and tool success rate.
+
+In production systems, regression detection is further strengthened using A/B testing, shadow deployments, and online monitoring of user-facing metrics like task success rate, latency, and cost. Statistical significance testing and slice-based analysis are used to distinguish true regressions from noise. This multi-layered approach ensures reliable detection of degradations across the full LLM pipeline.
+::`
+
+---
+
+# 12. Final intuition
+
+| Layer        | What it detects        |
+| ------------ | ---------------------- |
+| offline eval | pre-deploy regressions |
+| shadow eval  | safe comparison        |
+| A/B test     | real user impact       |
+| monitoring   | live system drift      |
+
+---
+
+If you want, I can go deeper into:
+
+* how to build a **full LLM regression CI system (like GitHub Actions for prompts/models)**
+* or how to do **slice-based regression debugging (finding exactly where system broke)**
+* or how big companies detect regressions in **agentic systems with tool traces and graph-based evaluation**

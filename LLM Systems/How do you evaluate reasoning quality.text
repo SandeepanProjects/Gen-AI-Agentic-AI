@@ -1,0 +1,373 @@
+Evaluating **reasoning quality** is one of the hardest problems in LLM systems, because you’re not just checking the final answer—you’re checking the **validity of the process used to reach it**.
+
+A senior framing:
+
+> Reasoning quality = how well the model constructs **correct intermediate steps, maintains logical consistency, and derives conclusions that are supported by evidence and premises**.
+
+---
+
+# 1. What “reasoning quality” actually means
+
+It typically includes 5 dimensions:
+
+---
+
+## 1.1 Logical validity
+
+Are steps logically consistent?
+
+* no contradictions
+* correct inference steps
+* valid deductions
+
+---
+
+## 1.2 Factual grounding
+
+Are claims supported by:
+
+* context (RAG)
+* tools
+* world knowledge
+
+---
+
+## 1.3 Step correctness
+
+Even if final answer is right:
+
+* were intermediate steps correct?
+
+This is critical in math, coding, agents.
+
+---
+
+## 1.4 Coherence of chain
+
+Does reasoning flow naturally?
+
+* no jumps
+* no missing steps
+* no circular logic
+
+---
+
+## 1.5 Robustness of reasoning
+
+Does reasoning still hold under:
+
+* paraphrased input
+* noisy context
+* adversarial phrasing
+
+---
+
+# 2. Why reasoning evaluation is hard
+
+Because:
+
+* multiple valid reasoning paths exist
+* final answer may be correct for wrong reasons
+* reasoning is often implicit or not fully observable
+
+So you cannot rely on simple accuracy metrics.
+
+---
+
+# 3. Main evaluation approaches
+
+---
+
+# 3.1 Outcome-based evaluation (weak proxy)
+
+You check only final answer correctness.
+
+### Example:
+
+* correct answer → assume good reasoning ❌ (not always true)
+
+✔ easy
+❌ misleading
+
+---
+
+# 3.2 Step-by-step human evaluation (gold standard)
+
+Humans check:
+
+* each reasoning step
+* logical flow
+* correctness of intermediate deductions
+
+✔ high quality
+❌ expensive and slow
+
+---
+
+# 3.3 LLM-as-a-judge for reasoning
+
+A judge model evaluates:
+
+* correctness of reasoning chain
+* logical consistency
+* missing steps
+
+Example rubric:
+
+* 1: invalid reasoning
+* 5: partially correct
+* 10: fully correct logical derivation
+
+---
+
+# 3.4 Process supervision (VERY important concept)
+
+Instead of only final answer:
+
+You label **intermediate reasoning steps**.
+
+Example:
+
+```text id="p1"
+Step 1: identify variables
+Step 2: apply formula
+Step 3: compute result
+```
+
+Then evaluate each step individually.
+
+✔ strongest signal
+✔ used in advanced training setups
+
+---
+
+# 3.5 Trace-based evaluation (agents)
+
+For agents:
+
+You evaluate full trajectory:
+
+* plan correctness
+* tool usage correctness
+* intermediate decisions
+* final outcome
+
+---
+
+# 3.6 Counterfactual testing
+
+Check reasoning robustness:
+
+* change input slightly
+* does reasoning remain valid?
+
+---
+
+# 4. Key metrics for reasoning quality
+
+---
+
+## 4.1 Step correctness rate
+
+\text{Step Correctness Rate} = \frac{\text{Correct reasoning steps}}{\text{Total steps}}
+
+---
+
+## 4.2 Logical consistency score
+
+Measures:
+
+* contradictions
+* invalid deductions
+
+---
+
+## 4.3 Faithfulness score (RAG reasoning)
+
+* reasoning must be supported by retrieved context
+
+---
+
+## 4.4 Minimal sufficient reasoning
+
+Checks:
+
+* no unnecessary steps
+* no hallucinated reasoning chains
+
+---
+
+## 4.5 Reasoning efficiency
+
+\text{Reasoning Efficiency} = \frac{\text{Correct conclusions}}{\text{Number of reasoning steps}}
+
+---
+
+# 5. Automated evaluation methods
+
+---
+
+## 5.1 LLM-as-a-judge (most common)
+
+Judge evaluates:
+
+* correctness of reasoning chain
+* clarity
+* logical validity
+
+---
+
+## 5.2 Symbolic validation (for math/code)
+
+* re-execute steps
+* verify correctness deterministically
+
+✔ strongest for structured domains
+
+---
+
+## 5.3 Programmatic verification
+
+For code reasoning:
+
+* run unit tests
+* check outputs
+
+---
+
+## 5.4 Consistency checks
+
+Ask model multiple times:
+
+* if reasoning varies → unstable reasoning
+
+---
+
+## 5.5 Self-consistency evaluation
+
+Multiple reasoning samples → majority vote correctness
+
+---
+
+# 6. Human evaluation of reasoning
+
+Humans check:
+
+* is each step valid?
+* is logic complete?
+* are assumptions justified?
+
+Rubric often includes:
+
+* correctness of steps
+* completeness
+* clarity
+* justification quality
+
+---
+
+# 7. RAG-specific reasoning evaluation
+
+You evaluate:
+
+* is reasoning grounded in retrieved docs?
+* does model hallucinate intermediate steps?
+* does it ignore relevant context?
+
+---
+
+# 8. Agent reasoning evaluation (hardest case)
+
+You evaluate:
+
+* plan quality
+* tool reasoning correctness
+* decision rationality
+* recovery logic
+* long-horizon consistency
+
+---
+
+# 9. Common failure modes in reasoning
+
+---
+
+## 9.1 Correct answer, wrong reasoning
+
+Model “guesses right”
+
+---
+
+## 9.2 Hallucinated intermediate steps
+
+Steps sound logical but are false
+
+---
+
+## 9.3 Missing steps
+
+Big jumps in logic
+
+---
+
+## 9.4 Over-explaining
+
+Too many unnecessary steps → noise
+
+---
+
+## 9.5 Inconsistent reasoning paths
+
+Different runs produce different logic
+
+---
+
+# 10. Production evaluation pipeline
+
+```text id="p2"
+Prompt / Model Output
+        ↓
+Step decomposition (if needed)
+        ↓
+LLM Judge + Rule checks
+        ↓
+(Optional) Human review
+        ↓
+Reasoning quality score
+        ↓
+Metrics + regression tracking
+```
+
+---
+
+# 11. Key insight
+
+> Reasoning quality is not about the final answer—it is about the correctness, completeness, and consistency of the *process that produces the answer*.
+
+---
+
+# 12. Senior-level interview answer
+
+Reasoning quality evaluation measures how correctly and consistently a model performs intermediate logical steps leading to a final answer. It goes beyond outcome accuracy by assessing logical validity, step correctness, coherence, and grounding in provided context.
+
+In production systems, reasoning quality is evaluated using a combination of human annotation, LLM-as-a-judge scoring, process supervision, and programmatic verification where applicable. For complex systems like RAG and agents, trace-based evaluation is used to assess the correctness of intermediate steps, tool usage, and decision paths. This ensures that models not only produce correct answers but also arrive at them through valid reasoning processes.
+::`
+
+---
+
+# 13. Final intuition
+
+| Level   | What is evaluated        |
+| ------- | ------------------------ |
+| outcome | final answer             |
+| step    | intermediate logic       |
+| trace   | full reasoning path      |
+| system  | overall decision quality |
+
+---
+
+If you want, I can go deeper into:
+
+* how to build **process supervision datasets (step-level labeling at scale)**
+* or how OpenAI-style systems do **reasoning evaluation in RLHF pipelines**
+* or how to detect **hidden reasoning failures in agent trajectories (very senior topic)**

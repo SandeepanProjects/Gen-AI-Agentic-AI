@@ -1,0 +1,360 @@
+Agent evaluation is very different from normal ML evaluation because you’re not just measuring predictions—you’re measuring a **sequence of decisions + tool use + state changes**.
+
+A senior framing:
+
+> Agent metrics measure how reliably an LLM can **plan, act, use tools, recover from errors, and complete tasks end-to-end under constraints**.
+
+---
+
+# 1. Core idea
+
+Unlike classic ML:
+
+* Input → Output ❌ (too simple)
+
+Agents are:
+
+```text id="a1"
+Goal → Plan → Tool Calls → Observations → Iteration → Final Answer
+```
+
+So evaluation must cover the **entire trajectory**, not just the final output.
+
+---
+
+# 2. Top-level agent metrics
+
+There are 6 major categories.
+
+---
+
+# 2.1 Task success rate (MOST IMPORTANT)
+
+> Did the agent complete the task correctly?
+
+Examples:
+
+* fixed bug in code
+* booked correct ticket
+* retrieved correct answer from tools
+
+\text{Task Success Rate} = \frac{\text{Successful tasks}}{\text{Total tasks}}
+
+✔ ultimate business metric
+✔ end-to-end correctness
+
+---
+
+# 2.2 Tool use accuracy
+
+Measures whether the agent:
+
+* selected correct tool
+* used correct arguments
+* executed tools successfully
+
+Breakdown:
+
+* tool selection accuracy
+* parameter correctness
+* tool execution success rate
+
+---
+
+## Failure examples
+
+❌ calling wrong API
+❌ malformed arguments
+❌ unnecessary tool calls
+
+---
+
+# 2.3 Planning quality
+
+Evaluates:
+
+* decomposition of tasks
+* correctness of steps
+* logical ordering
+
+Bad planner:
+
+* jumps directly to solution
+* misses intermediate steps
+* loops unnecessarily
+
+---
+
+# 2.4 Trajectory efficiency
+
+> How efficiently does the agent reach the goal?
+
+Metrics:
+
+* number of steps per task
+* tool calls per success
+* token usage per task
+* latency per task
+
+\text{Efficiency} = \frac{\text{Task Success}}{\text{Steps} + \text{Tool Calls}}
+
+---
+
+# 2.5 Robustness
+
+Measures performance under:
+
+* noisy inputs
+* partial failures
+* adversarial prompts
+* missing tools
+* long context
+
+Key metric:
+
+* success rate under perturbation
+
+---
+
+# 2.6 Recovery / self-healing ability
+
+Critical for production agents:
+
+* retry after tool failure
+* recover from wrong step
+* fix invalid outputs
+
+Metrics:
+
+* recovery success rate
+* retry efficiency
+* rollback success
+
+---
+
+# 3. Intermediate-level metrics (important in real systems)
+
+---
+
+## 3.1 Hallucination rate
+
+* tool hallucination (fake API calls)
+* factual hallucination
+* memory hallucination
+
+---
+
+## 3.2 Looping / stagnation rate
+
+> How often does the agent get stuck?
+
+Examples:
+
+* repeated tool calls
+* repeating same reasoning steps
+* infinite loops
+
+---
+
+## 3.3 Context usage efficiency
+
+* how much context is actually useful?
+* how often does agent ignore relevant info?
+
+---
+
+## 3.4 Memory correctness
+
+* correct use of short-term memory
+* correct retrieval from long-term memory
+* no stale memory usage
+
+---
+
+# 4. System-level metrics (production view)
+
+---
+
+## 4.1 Latency (P50 / P95 / P99)
+
+Agents are multi-step → latency compounds.
+
+---
+
+## 4.2 Cost per task
+
+Includes:
+
+* LLM calls
+* tool calls
+* embedding calls
+
+---
+
+## 4.3 Reliability / uptime success rate
+
+* % tasks completed without failure
+
+---
+
+## 4.4 Throughput
+
+* tasks per second in batch systems
+
+---
+
+# 5. Safety metrics (critical for agents)
+
+---
+
+## 5.1 Prompt injection success rate
+
+* % of successful attacks
+
+---
+
+## 5.2 Unsafe tool execution rate
+
+* executing restricted actions incorrectly
+
+---
+
+## 5.3 Policy violation rate
+
+* harmful outputs
+* unauthorized data access
+
+---
+
+# 6. Trajectory-based evaluation (key concept)
+
+Instead of just final answer:
+
+You evaluate full trace:
+
+```text id="t1"
+Step 1 → Plan
+Step 2 → Tool call
+Step 3 → Observation
+Step 4 → Correction
+Step 5 → Final answer
+```
+
+Metrics:
+
+* correctness of each step
+* correctness of transitions
+* consistency across steps
+
+---
+
+# 7. Agent evaluation breakdown (very important)
+
+You evaluate 3 layers:
+
+---
+
+## 7.1 Per-step evaluation
+
+* was this step correct?
+
+---
+
+## 7.2 Trajectory evaluation
+
+* was the sequence correct?
+
+---
+
+## 7.3 Outcome evaluation
+
+* did we solve the task?
+
+---
+
+# 8. Advanced metrics used in real systems
+
+---
+
+## 8.1 Success weighted by efficiency
+
+\text{SWER} = \text{Success Rate} \times \frac{1}{\text{Avg Steps}}
+
+---
+
+## 8.2 Tool efficiency ratio
+
+* useful tool calls / total tool calls
+
+---
+
+## 8.3 Planning entropy
+
+Measures randomness in agent decisions (high entropy = unstable agent)
+
+---
+
+# 9. Offline vs online agent metrics
+
+---
+
+## Offline
+
+* task success on benchmarks
+* tool correctness on test suite
+* controlled simulations
+
+---
+
+## Online
+
+* user success rate
+* task completion rate
+* cost per interaction
+* abandonment rate
+
+---
+
+# 10. Common failures in agent evaluation
+
+❌ only measuring final answer accuracy
+❌ ignoring tool correctness
+❌ ignoring intermediate steps
+❌ no trajectory analysis
+❌ no robustness testing
+❌ no cost tracking
+
+---
+
+# 11. Key insight
+
+> Agent evaluation is trajectory evaluation, not output evaluation.
+
+---
+
+# 12. Senior-level interview answer
+
+Evaluating LLM-based agents requires measuring end-to-end task performance, as well as intermediate decision quality across planning, tool usage, and execution steps. The primary metric is task success rate, which captures whether the agent completes the objective correctly.
+
+Additional critical metrics include tool usage accuracy, planning quality, trajectory efficiency, robustness under perturbations, recovery ability from failures, and hallucination rate in tool or factual outputs. System-level metrics such as latency, cost per task, and throughput are also essential. Unlike standard ML systems, agent evaluation focuses on full execution trajectories rather than single-step outputs.
+::`
+
+---
+
+# 13. Final intuition
+
+| Metric type   | What it measures                     |
+| ------------- | ------------------------------------ |
+| task success  | did it solve the problem?            |
+| tool accuracy | did it act correctly?                |
+| efficiency    | how costly was it?                   |
+| robustness    | does it survive noise?               |
+| trajectory    | did it think correctly step-by-step? |
+
+---
+
+If you want, I can go deeper into:
+
+* how to design a **trajectory-based evaluation framework (LangSmith-style / OpenAI Evals for agents)**
+* or how companies build **agent benchmarking suites (GAIA, SWE-bench style)**
+* or how to do **automatic grading of agent traces using LLM judges + rule systems (very senior topic)**

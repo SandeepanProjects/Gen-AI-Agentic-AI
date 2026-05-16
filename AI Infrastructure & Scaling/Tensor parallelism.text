@@ -1,0 +1,197 @@
+Tensor parallelism is a **model-parallel inference/training strategy** where a single neural network layer is split **across multiple GPUs**, so each GPU computes a portion of the same tensor operation.
+
+It’s one of the core techniques used to run **very large LLMs (70B–1T+ parameters)** in production.
+
+---
+
+# 🧠 1. Core Idea (Simple Mental Model)
+
+Instead of:
+
+> 1 GPU computes the entire matrix multiplication
+
+You do:
+
+> Multiple GPUs compute parts of the same matrix multiplication in parallel
+
+So a single layer is “sharded” across GPUs.
+
+---
+
+# ⚙️ 2. Why Tensor Parallelism is needed
+
+A model may be too large for one GPU:
+
+* Weights don’t fit in memory
+* Compute is too slow on one device
+* Bandwidth becomes bottleneck
+
+So we split the computation itself.
+
+---
+
+# 📐 3. Basic Example: Linear Layer
+
+A transformer layer has:
+
+Y = XW
+
+Where:
+
+* (X) = input activations
+* (W) = weight matrix
+* (Y) = output
+
+---
+
+## 🔷 Tensor Parallel Split
+
+We split the weight matrix:
+
+W = [W_1 ; W_2 ; W_3 ; W_4]
+
+Each GPU computes:
+
+* GPU 1 → (XW_1)
+* GPU 2 → (XW_2)
+* GPU 3 → (XW_3)
+* GPU 4 → (XW_4)
+
+Then results are combined:
+
+Y = [XW_1, XW_2, XW_3, XW_4]
+
+---
+
+# 🚀 4. Where Tensor Parallelism is applied in Transformers
+
+In LLMs, it is applied to:
+
+### 1. Attention layers
+
+* Q, K, V projections
+* Output projection
+
+### 2. Feed-forward networks (MLP)
+
+* Big matrix multiplications
+
+### 3. Sometimes embedding layers
+
+---
+
+# 🧩 5. How it works in practice
+
+Let’s say:
+
+* Model: 70B parameters
+* GPUs: 8 × A100
+
+Each GPU holds ~1/8 of every large matrix.
+
+So:
+
+* Each GPU computes partial results
+* Then GPUs communicate to assemble final output
+
+---
+
+# 🔄 6. Communication overhead (important!)
+
+Tensor parallelism is not free.
+
+After computation:
+
+* GPUs must **synchronize partial results**
+* Uses high-speed interconnects:
+
+  * NVLink (fast)
+  * PCIe (slower)
+
+This communication step is called:
+
+> 🔥 **All-reduce / All-gather**
+
+---
+
+# ⚡ 7. Trade-offs
+
+| Aspect        | Tensor Parallelism            |
+| ------------- | ----------------------------- |
+| Memory usage  | ↓ (split across GPUs)         |
+| Latency       | ↓ or ↔ (depends on comm cost) |
+| Throughput    | ↑                             |
+| Complexity    | High                          |
+| Communication | Heavy                         |
+
+---
+
+# 🧠 8. Tensor Parallelism vs Other Parallelisms
+
+This is a common interview topic:
+
+## 🔷 Tensor Parallelism
+
+* Splits **within a layer**
+* Fine-grained
+* Heavy GPU communication
+
+---
+
+## 🔷 Pipeline Parallelism
+
+* Splits **layers across GPUs**
+* Less communication, more latency
+
+---
+
+## 🔷 Data Parallelism
+
+* Same model copied across GPUs
+* Different data batches
+
+---
+
+# 🚀 9. Real Production Usage
+
+Tensor parallelism is used in:
+
+* NVIDIA inference stacks (TensorRT-LLM)
+* vLLM (supports distributed execution)
+* DeepSpeed
+* Large-scale training clusters
+
+---
+
+# 🧠 10. When you choose Tensor Parallelism
+
+Use it when:
+
+* Model is too large for single GPU
+* You need **low latency inference at scale**
+* You have fast interconnect (NVLink recommended)
+* You want to maximize GPU utilization
+
+Avoid when:
+
+* Small models (<7B)
+* Slow interconnect (communication becomes bottleneck)
+* Simpler deployment needed
+
+---
+
+# 🔥 11. Senior-level intuition
+
+> Tensor parallelism is “splitting math inside a layer,” not splitting layers or data.
+> It trades **communication cost for memory scalability and compute parallelism.**
+
+---
+
+If you want next-level depth, I can explain:
+
+* ⚡ Megatron-LM tensor parallel implementation
+* 🧠 How attention is split across GPUs step-by-step
+* 🚀 Tensor vs pipeline vs sequence parallel hybrid systems
+* 💰 Real latency overhead per NVLink hop
+
+Just tell me 👍

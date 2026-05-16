@@ -1,0 +1,369 @@
+Offline vs online evaluation is one of the most important distinctions in **production LLM system design**, because it separates *controlled testing* from *real-world behavior*.
+
+A senior framing:
+
+> Offline eval = “Can this system work?”
+> Online eval = “Does this system work for real users, in the real world?”
+
+---
+
+# 1. Offline evaluation
+
+## 1.1 Definition
+
+Offline evaluation happens **before deployment**, using fixed datasets and controlled environments.
+
+---
+
+## 1.2 Data source
+
+* golden datasets
+* curated test cases
+* synthetic prompts
+* adversarial examples
+* labeled ground truth
+
+---
+
+## 1.3 What you measure
+
+### Core metrics:
+
+* accuracy / exact match
+* retrieval recall@k (for RAG)
+* hallucination rate
+* format compliance (JSON/schema)
+* tool call correctness
+* reasoning quality (LLM judge)
+
+---
+
+## 1.4 Key properties
+
+✔ deterministic
+✔ repeatable
+✔ fast iteration
+✔ safe (no user impact)
+
+---
+
+## 1.5 Example
+
+Testing a RAG system:
+
+```text id="o1"
+Q: What is FAISS used for?
+Expected: vector similarity search
+```
+
+Run model → compare output → compute score.
+
+---
+
+## 1.6 Strengths
+
+* great for regression testing
+* good for prompt tuning
+* easy to compare versions
+* supports CI/CD pipelines
+
+---
+
+## 1.7 Limitations
+
+❌ doesn’t reflect real user behavior
+❌ dataset bias
+❌ brittle to distribution shift
+❌ over-optimization risk (overfitting to benchmark)
+
+---
+
+# 2. Online evaluation
+
+## 2.1 Definition
+
+Online evaluation happens **in production**, using real user interactions.
+
+---
+
+## 2.2 Data source
+
+* user queries
+* system logs
+* feedback signals
+* tool usage traces
+* click / correction / abandonment data
+
+---
+
+## 2.3 What you measure
+
+### Behavioral metrics:
+
+* user satisfaction score
+* task completion rate
+* retention / engagement
+* correction rate
+* latency (P95/P99)
+* cost per request
+
+---
+
+## 2.4 Key properties
+
+✔ realistic
+✔ captures real distribution
+✔ reflects true system performance
+❌ noisy
+❌ harder to attribute causality
+❌ slower feedback loop
+
+---
+
+## 2.5 Example
+
+A user asks:
+
+> “Summarize this PDF”
+
+System output → user edits or regenerates → signal captured:
+
+* success/failure
+* user satisfaction proxy
+
+---
+
+# 3. Core differences
+
+| Dimension   | Offline Eval     | Online Eval       |
+| ----------- | ---------------- | ----------------- |
+| Data source | curated datasets | real users        |
+| Timing      | pre-deployment   | post-deployment   |
+| Reliability | high             | noisy             |
+| Coverage    | limited          | full distribution |
+| Risk        | none             | production impact |
+| Speed       | fast iteration   | slow feedback     |
+
+---
+
+# 4. Mental model
+
+## Offline = lab testing
+
+* controlled
+* repeatable
+* benchmark-driven
+
+---
+
+## Online = real-world performance
+
+* messy
+* unpredictable
+* business-driven
+
+---
+
+# 5. Why both are necessary
+
+If you only use:
+
+---
+
+## Offline only → dangerous
+
+* model overfits benchmark
+* fails in production edge cases
+* misses real user behavior
+
+---
+
+## Online only → chaotic
+
+* slow iteration
+* risky experiments
+* hard to debug regressions
+
+---
+
+# 6. Production evaluation pipeline
+
+```text id="p1"
+        Offline Eval
+      (pre-deployment)
+              ↓
+        Shadow Testing
+              ↓
+        A/B Testing
+              ↓
+        Online Monitoring
+              ↓
+        Feedback Loop
+```
+
+---
+
+# 7. Shadow vs A/B (important distinction)
+
+---
+
+## Shadow evaluation
+
+* new system runs silently
+* no user impact
+* compare outputs internally
+
+✔ safe rollout testing
+
+---
+
+## A/B testing
+
+* users split between systems
+* measure real performance differences
+
+✔ best for business metrics
+
+---
+
+# 8. Metrics mapping
+
+| Stage   | Metrics                                |
+| ------- | -------------------------------------- |
+| Offline | accuracy, hallucination rate, recall@k |
+| Online  | satisfaction, retention, latency, cost |
+| Both    | error rate, success rate               |
+
+---
+
+# 9. Key challenges
+
+---
+
+## 9.1 Distribution shift
+
+Offline dataset ≠ real user queries
+
+---
+
+## 9.2 Feedback sparsity
+
+Users don’t always provide explicit feedback
+
+---
+
+## 9.3 Confounding variables
+
+Other system changes affect metrics
+
+---
+
+## 9.4 Delayed signals
+
+User satisfaction may appear hours/days later
+
+---
+
+# 10. Advanced evaluation techniques
+
+---
+
+## 10.1 Continuous evaluation (CI for LLMs)
+
+Every prompt/model change triggers:
+
+* offline benchmark rerun
+* regression detection
+
+---
+
+## 10.2 Online anomaly detection
+
+Detect sudden drops in:
+
+* success rate
+* tool failure rate
+* hallucination spikes
+
+---
+
+## 10.3 Hybrid evaluation
+
+Combine:
+
+* offline benchmarks
+* shadow runs
+* online feedback
+
+---
+
+# 11. RAG-specific perspective
+
+---
+
+## Offline RAG eval
+
+* retrieval recall
+* context relevance
+* answer correctness on fixed QA sets
+
+---
+
+## Online RAG eval
+
+* user satisfaction
+* click-through on sources
+* query reformulation rate
+
+---
+
+# 12. Agentic system perspective
+
+---
+
+## Offline
+
+* tool correctness tests
+* fixed task simulations
+* workflow validation
+
+---
+
+## Online
+
+* task completion rate
+* cost per task
+* failure recovery rate
+* loop detection frequency
+
+---
+
+# 13. Key insight
+
+> Offline evaluation ensures correctness in a controlled world; online evaluation ensures usefulness in the real world.
+
+---
+
+# 14. Senior-level interview answer
+
+Offline evaluation refers to assessing LLM systems using fixed datasets and controlled environments before deployment. It focuses on metrics such as accuracy, retrieval recall, hallucination rate, and format compliance, enabling reproducible and deterministic testing.
+
+Online evaluation, in contrast, measures system performance in production using real user interactions and behavioral signals such as task success rate, user satisfaction, latency, and cost. While offline evaluation provides reliable regression testing, online evaluation captures real-world distribution and user behavior. In production systems, both approaches are combined with shadow testing and A/B testing to ensure safe deployment and continuous improvement.
+::`
+
+---
+
+# 15. Final intuition
+
+| Concept      | Meaning                    |
+| ------------ | -------------------------- |
+| offline eval | “does it work in theory?”  |
+| online eval  | “does it work in reality?” |
+
+---
+
+If you want, I can go deeper into:
+
+* how companies build **LLM evaluation CI/CD pipelines (very senior system design)**
+* or how to design **automatic LLM judges with calibration to human raters**
+* or how evaluation differs for **agents vs RAG vs tool-using systems at scale**

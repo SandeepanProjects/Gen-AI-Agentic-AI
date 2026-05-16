@@ -1,0 +1,272 @@
+Few-shot vs zero-shot prompting is about **how much task-specific guidance you give the model before asking it to perform a task**.
+
+A senior framing:
+
+> It’s the difference between “no examples” vs “a few demonstrations that shape the model’s behavior.”
+
+---
+
+# 1. Zero-shot prompting
+
+## Definition
+
+You give the model **only instructions**, no examples.
+
+---
+
+## Example
+
+```text id="z1"
+Classify the sentiment of this sentence as Positive, Negative, or Neutral:
+
+"I love this product, it works perfectly."
+```
+
+---
+
+## What happens internally
+
+The model relies on:
+
+* pretraining knowledge
+* instruction-following ability
+* generalization from similar patterns seen during training
+
+---
+
+## When it works well
+
+✔ simple tasks
+✔ well-represented patterns in training data
+✔ clear instructions
+
+Examples:
+
+* summarization
+* basic classification
+* translation
+* general Q&A
+
+---
+
+## Pros
+
+* no example design needed
+* fast and cheap
+* scalable
+
+---
+
+## Cons
+
+* less reliable for edge cases
+* more prompt sensitivity
+* inconsistent formatting
+
+---
+
+# 2. Few-shot prompting
+
+## Definition
+
+You provide **a few examples (shots)** of input → output pairs before the actual task.
+
+---
+
+## Example
+
+```text id="f1"
+Classify sentiment:
+
+Input: "I love this product"
+Output: Positive
+
+Input: "This is terrible"
+Output: Negative
+
+Input: "It is okay, not great"
+Output: Neutral
+
+Now classify:
+Input: "The experience was surprisingly good"
+Output:
+```
+
+---
+
+## What happens internally
+
+The model:
+
+* detects pattern structure
+* aligns to demonstration format
+* performs implicit task induction
+
+This is often called:
+
+> in-context learning
+
+---
+
+## When it works best
+
+✔ complex tasks
+✔ strict output formats
+✔ domain-specific behavior
+✔ ambiguous instructions
+
+Examples:
+
+* structured extraction (JSON)
+* reasoning tasks
+* domain classification
+* code generation style control
+
+---
+
+## Pros
+
+* higher accuracy
+* better formatting consistency
+* better domain adaptation
+
+---
+
+## Cons
+
+* higher token cost
+* risk of overfitting to examples
+* context window usage increases
+
+---
+
+# 3. Core difference
+
+| Aspect         | Zero-shot | Few-shot      |
+| -------------- | --------- | ------------- |
+| Examples       | none      | 2–10 examples |
+| Cost           | low       | higher        |
+| Accuracy       | medium    | higher        |
+| Flexibility    | high      | medium        |
+| Format control | weaker    | strong        |
+
+---
+
+# 4. Why few-shot works (important concept)
+
+Few-shot prompting leverages:
+
+> **In-context learning (ICL)** — the model learns the task pattern from examples without updating weights.
+
+It is not training; it is **pattern conditioning inside attention**.
+
+---
+
+# 5. Mental model (very important)
+
+## Zero-shot = instruction following
+
+You tell the model:
+
+> “Do this task.”
+
+---
+
+## Few-shot = demonstration learning
+
+You show:
+
+> “Here is how to do it.”
+
+---
+
+# 6. When to choose what
+
+## Use zero-shot when:
+
+* task is simple
+* latency is important
+* cost must be minimized
+* format is flexible
+
+---
+
+## Use few-shot when:
+
+* output must be consistent
+* task is ambiguous
+* domain-specific behavior is needed
+* hallucination risk is high
+
+---
+
+# 7. Hybrid approach (best practice in production)
+
+Most real systems combine:
+
+* system prompt (rules)
+* few-shot examples (behavior shaping)
+* structured output schema (enforcement)
+
+```text id="h1"
+System rules + 2–3 examples + JSON schema
+```
+
+---
+
+# 8. Advanced insight (senior-level)
+
+Few-shot prompting is essentially:
+
+> “soft programming via examples”
+
+Instead of writing rules, you are shaping the model’s probability distribution.
+
+---
+
+# 9. Common pitfalls
+
+❌ too many examples → confusion
+❌ inconsistent formatting across examples
+❌ irrelevant examples (hurts performance)
+❌ mixing tasks in examples
+❌ token explosion in long prompts
+
+---
+
+# 10. Production recommendation
+
+| Scenario                | Best choice                   |
+| ----------------------- | ----------------------------- |
+| chat assistant          | zero-shot + system prompt     |
+| extraction pipeline     | few-shot + schema             |
+| RAG QA                  | zero-shot + retrieved context |
+| structured coding tasks | few-shot + templates          |
+
+---
+
+# 11. Senior-level interview answer
+
+Zero-shot prompting refers to instructing a language model to perform a task using only natural language instructions without providing any task-specific examples. Few-shot prompting, in contrast, includes a small number of input-output demonstrations that guide the model’s behavior through in-context learning.
+
+Few-shot prompting typically improves performance on complex or ambiguous tasks by allowing the model to infer the desired pattern, format, and reasoning style from examples. However, it increases token usage and can introduce bias from example selection. In production systems, a hybrid approach combining instructions, few-shot examples, and structured output constraints is commonly used for optimal reliability.
+::`
+
+---
+
+# 12. Final intuition
+
+| Concept   | Analogy           |
+| --------- | ----------------- |
+| zero-shot | giving directions |
+| few-shot  | showing examples  |
+| model     | student           |
+| prompt    | teaching method   |
+
+---
+
+If you want, I can go deeper into:
+
+* **chain-of-thought vs few-shot prompting**
+* or how to design **optimal few-shot example selection (very important in RAG systems)**
+* or how production systems automatically generate few-shot examples dynamically (advanced agentic design)

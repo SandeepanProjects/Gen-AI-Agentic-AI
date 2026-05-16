@@ -1,0 +1,407 @@
+A **golden dataset** is the backbone of evaluation in LLM systems. If prompts, models, and agents are the “code,” then golden datasets are your **unit tests + ground truth specification**.
+
+A senior framing:
+
+> A golden dataset is a curated, high-quality set of inputs with trusted outputs used to evaluate and regress LLM system behavior.
+
+---
+
+# 1. Why golden datasets matter
+
+They enable you to:
+
+* detect regressions when prompts/models change
+* compare versions objectively
+* benchmark retrieval + generation + agents
+* calibrate automated evaluators (LLM judges)
+
+Without them:
+
+> you’re debugging “feelings” instead of systems
+
+---
+
+# 2. What a golden dataset contains
+
+Each record is not just Q/A.
+
+A production-grade entry looks like:
+
+```json id="g1"
+{
+  "input": "What is FAISS used for?",
+  "expected_answer": "Vector similarity search and indexing",
+  "retrieval_ground_truth": ["doc_12", "doc_98"],
+  "evaluation_rubric": {
+    "correctness": true,
+    "faithfulness_required": true
+  },
+  "difficulty": "easy",
+  "tags": ["RAG", "vector-db"]
+}
+```
+
+---
+
+# 3. Types of golden datasets
+
+---
+
+## 3.1 Task-level golden dataset
+
+Used for:
+
+* classification
+* QA
+* summarization
+* extraction
+
+---
+
+## 3.2 RAG golden dataset
+
+Includes:
+
+* query
+* relevant documents (ground truth retrieval)
+* expected answer
+
+---
+
+## 3.3 Agent golden dataset
+
+Includes:
+
+* multi-step tasks
+* tool calls
+* expected trajectory or final outcome
+
+---
+
+## 3.4 Adversarial dataset
+
+Used for robustness:
+
+* prompt injection
+* jailbreak attempts
+* noisy inputs
+* ambiguous queries
+
+---
+
+# 4. How to build a golden dataset (step-by-step)
+
+---
+
+# Step 1: Define evaluation goals
+
+Ask:
+
+* What system are we evaluating? (RAG / agent / prompt)
+* What does “correct” mean?
+* What failure modes matter?
+
+Example:
+
+> In RAG: correctness + grounding
+> In agents: tool correctness + task success
+
+---
+
+# Step 2: Collect real-world data
+
+Best source:
+
+* production logs
+* user queries
+* support tickets
+* search queries
+
+✔ ensures realism
+❌ may contain noise
+
+---
+
+# Step 3: Clean and filter
+
+Remove:
+
+* duplicates
+* ambiguous queries (unless testing ambiguity handling)
+* low-quality inputs
+
+---
+
+# Step 4: Label ground truth
+
+This is the most important step.
+
+Methods:
+
+---
+
+## 4.1 Human annotation (gold standard)
+
+Humans define:
+
+* correct answers
+* relevant documents
+* reasoning steps
+
+✔ highest quality
+❌ expensive
+
+---
+
+## 4.2 Expert labeling
+
+Used for:
+
+* legal
+* medical
+* finance
+* code
+
+---
+
+## 4.3 Consensus labeling
+
+Multiple annotators → majority vote
+
+Reduces bias.
+
+---
+
+## 4.4 LLM-assisted labeling (bootstrapping)
+
+LLM suggests answers → humans verify
+
+✔ scalable
+❌ needs careful validation
+
+---
+
+# Step 5: Add evaluation rubrics
+
+Instead of just “correct/incorrect,” define:
+
+* correctness
+* completeness
+* grounding
+* clarity
+* safety compliance
+
+---
+
+# Step 6: Balance dataset
+
+You must include:
+
+* easy cases
+* hard cases
+* edge cases
+* adversarial cases
+* long-context cases
+
+Otherwise evaluation is biased.
+
+---
+
+# Step 7: Versioning
+
+Golden datasets must be versioned:
+
+```text id="v1"
+golden_dataset_v1.json
+golden_dataset_v2.json
+```
+
+Each version tracks:
+
+* added examples
+* corrected labels
+* removed noise
+
+---
+
+# 5. Key design principles
+
+---
+
+## 5.1 Stability > size
+
+A small high-quality dataset is better than a large noisy one.
+
+---
+
+## 5.2 Represent production distribution
+
+Dataset must mirror real user queries.
+
+---
+
+## 5.3 Include failure cases
+
+You should deliberately include:
+
+* hallucination-prone queries
+* ambiguous inputs
+* tool-heavy tasks
+
+---
+
+## 5.4 Separate evaluation dimensions
+
+Don’t mix:
+
+* retrieval correctness
+* reasoning correctness
+* formatting correctness
+
+---
+
+# 6. RAG golden dataset design
+
+Each entry includes:
+
+```json id="r1"
+{
+  "query": "What is FAISS?",
+  "relevant_docs": ["doc_1", "doc_9"],
+  "ideal_answer": "FAISS is a vector similarity search library"
+}
+```
+
+Metrics derived:
+
+* recall@k
+* precision@k
+* faithfulness
+* answer correctness
+
+---
+
+# 7. Agent golden dataset design
+
+More complex:
+
+```json id="a1"
+{
+  "task": "Book cheapest flight from A to B",
+  "expected_tool_sequence": ["search_flights", "filter_price", "book"],
+  "expected_result": "booking_success"
+}
+```
+
+You evaluate:
+
+* tool correctness
+* trajectory correctness
+* final success
+
+---
+
+# 8. Common mistakes
+
+❌ using synthetic-only data
+❌ no real user queries
+❌ no adversarial cases
+❌ unclear “correct answer” definition
+❌ mixing multiple evaluation goals in one dataset
+❌ not versioning datasets
+
+---
+
+# 9. Advanced techniques
+
+---
+
+## 9.1 Active dataset expansion
+
+Add new cases from:
+
+* model failures
+* user complaints
+* edge cases in production
+
+---
+
+## 9.2 Hard-negative mining
+
+Include:
+
+* similar but incorrect answers
+* misleading documents
+
+---
+
+## 9.3 Continuous dataset evolution
+
+Golden dataset is not static—it evolves with:
+
+* new model behavior
+* new failure modes
+* new tools
+
+---
+
+## 9.4 Dataset slicing
+
+Split into:
+
+* development set
+* validation set
+* regression set
+* adversarial set
+
+---
+
+# 10. Production evaluation pipeline
+
+```text id="p1"
+User Logs
+   ↓
+Case Selection
+   ↓
+Human/LLM Labeling
+   ↓
+Golden Dataset Store
+   ↓
+Evaluation CI Pipeline
+   ↓
+Model/Prompt Regression Testing
+```
+
+---
+
+# 11. Key insight
+
+> A golden dataset is not just “data”—it is a **formal specification of expected intelligence behavior**
+
+---
+
+# 12. Senior-level interview answer
+
+A golden dataset is a curated, high-quality benchmark used to evaluate and regress LLM systems. It consists of input queries paired with trusted ground truth outputs, and in advanced cases includes retrieval labels, tool execution traces, and evaluation rubrics.
+
+Golden datasets are constructed from real-world logs, expert annotations, and synthetic adversarial cases, followed by rigorous cleaning, labeling, and versioning. They serve as the foundation for offline evaluation, enabling consistent comparison of prompts, models, and system architectures. In production LLM systems, golden datasets are continuously updated to reflect evolving user behavior and emerging failure modes.
+::`
+
+---
+
+# 13. Final intuition
+
+| Component  | Meaning                   |
+| ---------- | ------------------------- |
+| input      | real task                 |
+| label      | “what good looks like”    |
+| rubric     | how to judge correctness  |
+| versioning | system evolution tracking |
+
+---
+
+If you want, I can go deeper into:
+
+* how companies build **golden datasets at scale using production logs + active learning**
+* or how to design a **golden dataset for agentic systems (hardest case)**
+* or how golden datasets connect to **LLM judges and reward models (RLHF-style pipelines)**

@@ -1,0 +1,336 @@
+Prompt versioning is a **production engineering discipline** that treats prompts like code—because in real systems, prompts *are* code.
+
+A senior framing:
+
+> Prompt versioning = controlling, tracking, and safely evolving prompts so behavior changes are **reproducible, testable, and rollbackable**.
+
+Without it, LLM systems become:
+
+> “random behavior depending on which prompt happened to be deployed”
+
+---
+
+# 1. Why prompt versioning is needed
+
+Prompts change:
+
+* model behavior
+* tool usage patterns
+* RAG retrieval quality
+* agent decisions
+* safety boundaries
+
+So you must be able to answer:
+
+* Which prompt produced this output?
+* What changed between v3 and v4?
+* Can I rollback safely?
+* Did accuracy improve or regress?
+
+---
+
+# 2. What you version
+
+You don’t version just text—you version a **prompt package**:
+
+### A prompt version includes:
+
+* system prompt
+* developer instructions
+* few-shot examples
+* tool schemas
+* formatting rules
+* constraints
+* temperature / decoding settings (often)
+
+---
+
+# 3. Basic versioning approach
+
+## 3.1 Semantic versioning (recommended)
+
+```text id="p1"
+prompt_name: "rag_answer_generator"
+version: 2.3.1
+```
+
+### Meaning:
+
+| Version       | Meaning                  |
+| ------------- | ------------------------ |
+| major (2.x.x) | breaking behavior change |
+| minor (x.3.x) | new capability added     |
+| patch (x.x.1) | small fix / tweak        |
+
+---
+
+# 4. Prompt as a structured object
+
+Instead of raw text:
+
+```json id="p2"
+{
+  "name": "rag_prompt",
+  "version": "1.4.0",
+  "system": "...",
+  "instructions": "...",
+  "examples": [...],
+  "tools": [...],
+  "output_schema": {...}
+}
+```
+
+✔ enables diffing
+✔ enables testing
+✔ enables rollback
+
+---
+
+# 5. Storage strategies
+
+---
+
+## 5.1 Git-based versioning (best practice)
+
+Prompts stored like code:
+
+```text id="g1"
+prompts/
+  rag/
+    v1.md
+    v2.md
+    v3.md
+```
+
+✔ full audit trail
+✔ diffable
+✔ CI/CD friendly
+
+---
+
+## 5.2 Registry-based versioning
+
+Central prompt registry:
+
+```text id="r1"
+GET /prompts/rag_answer_generator?version=2.1.0
+```
+
+Used in production APIs.
+
+---
+
+## 5.3 Database versioning
+
+Each prompt stored with:
+
+* version
+* timestamp
+* author
+* change log
+
+---
+
+# 6. Prompt lifecycle management
+
+---
+
+## 6.1 Draft → Staging → Production
+
+```text id="l1"
+draft → test → shadow → production
+```
+
+---
+
+## 6.2 Shadow deployment (VERY important)
+
+Run new prompt alongside old:
+
+* same inputs
+* compare outputs
+* no user impact
+
+---
+
+## 6.3 A/B testing prompts
+
+```text id="a1"
+50% users → prompt v1
+50% users → prompt v2
+```
+
+Measure:
+
+* accuracy
+* latency
+* user satisfaction
+
+---
+
+# 7. Prompt diffing (critical for debugging)
+
+You should be able to answer:
+
+> “What changed between prompt v3 and v4?”
+
+Example diff:
+
+```diff id="d1"
+- You may use external tools freely
++ You must request approval before tool calls
+```
+
+Even small changes can massively alter behavior.
+
+---
+
+# 8. Prompt rollback strategy
+
+If system breaks:
+
+* revert version instantly
+* no model retraining needed
+
+```text id="r2"
+production → v4 (bad)
+rollback → v3 (stable)
+```
+
+✔ one of the biggest advantages of prompt systems
+
+---
+
+# 9. Testing prompts (like software)
+
+---
+
+## 9.1 Unit tests for prompts
+
+Input → expected structure
+
+---
+
+## 9.2 Regression tests
+
+Ensure new prompt doesn’t break old behavior
+
+---
+
+## 9.3 Golden datasets
+
+Fixed evaluation set:
+
+* questions
+* expected answers
+* structured outputs
+
+---
+
+# 10. Observability in prompt versioning
+
+You must log:
+
+* prompt version used
+* model version
+* temperature
+* tool calls
+* output schema validation results
+
+---
+
+# 11. Common pitfalls
+
+❌ editing prompts in-place (no version tracking)
+❌ no rollback mechanism
+❌ mixing prompt logic with application code
+❌ no A/B testing
+❌ no evaluation dataset
+❌ no change logs
+
+---
+
+# 12. Production architecture
+
+```text id="a1"
+            Prompt Registry
+                  ↓
+     ┌────────────────────────┐
+     │ Prompt Version Manager │
+     └─────────┬──────────────┘
+               ↓
+        Orchestrator
+               ↓
+        LLM Execution
+               ↓
+     Logging + Evaluation
+               ↓
+      Metrics + Monitoring
+```
+
+---
+
+# 13. Key design principles
+
+### 1. Prompts are code
+
+→ version them like software
+
+---
+
+### 2. Behavior changes must be observable
+
+→ no silent updates
+
+---
+
+### 3. Every prompt must be reproducible
+
+→ same version = same behavior
+
+---
+
+### 4. Never deploy untested prompts
+
+→ always shadow or A/B
+
+---
+
+# 14. Advanced concept: prompt dependency graphs
+
+In agentic systems:
+
+* prompt A depends on prompt B
+* tool schemas depend on prompts
+* memory formatting depends on prompts
+
+So you version a **prompt graph**, not a single prompt.
+
+---
+
+# 15. Senior-level interview answer
+
+Prompt versioning is the practice of treating prompts as version-controlled artifacts, similar to application code. Each prompt is assigned a semantic version and stored with metadata including system instructions, examples, tool schemas, and output constraints.
+
+In production systems, prompts are managed through registries or Git-based workflows, enabling reproducibility, rollback, and controlled rollout via staging and A/B testing. Proper versioning is critical in LLM applications because even small prompt changes can significantly alter model behavior, affecting correctness, safety, and cost.
+::`
+
+---
+
+# 16. Final intuition
+
+| Concept  | Analogy         |
+| -------- | --------------- |
+| prompt   | code            |
+| version  | release         |
+| rollback | git revert      |
+| A/B test | feature flag    |
+| registry | package manager |
+
+---
+
+If you want, I can go deeper into:
+
+* how to design a **prompt CI/CD pipeline for LLM systems**
+* or how big companies manage **thousands of production prompts safely**
+* or how prompt versioning interacts with **RAG + agent memory + tool schemas (very senior system design topic)**

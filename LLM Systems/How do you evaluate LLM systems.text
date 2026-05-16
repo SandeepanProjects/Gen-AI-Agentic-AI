@@ -1,0 +1,420 @@
+Evaluating LLM systems is broader than evaluating prompts—you’re now assessing a **full probabilistic software system** that includes models, retrieval, tools, agents, memory, and orchestration.
+
+A senior framing:
+
+> LLM system evaluation = measuring **end-to-end task success, reliability, cost, and safety under real-world conditions**, not just model accuracy.
+
+---
+
+# 1. What “LLM system” means
+
+An LLM system typically includes:
+
+* prompt layer
+* retrieval (RAG)
+* embeddings + vector DB
+* rerankers
+* tool/function calling
+* memory (short + long-term)
+* agent orchestration
+* guardrails + validators
+
+So evaluation must be **system-level**, not model-level.
+
+---
+
+# 2. Core evaluation dimensions
+
+There are 6 key pillars:
+
+---
+
+## 2.1 Task success (end-to-end correctness)
+
+Did the system solve the user’s problem?
+
+Examples:
+
+* correct answer in QA
+* correct code generation
+* correct API action executed
+
+Metrics:
+
+* exact match
+* pass/fail
+* human judgment
+
+---
+
+## 2.2 Grounding / faithfulness (critical for RAG)
+
+Is output supported by retrieved context?
+
+You check:
+
+* hallucination rate
+* citation accuracy
+* context overlap
+
+Bad system:
+
+> confident answer not present in documents
+
+---
+
+## 2.3 Retrieval quality (RAG-specific)
+
+Evaluate retrieval stage separately:
+
+* recall@k
+* precision@k
+* MRR (mean reciprocal rank)
+* nDCG
+
+---
+
+## 2.4 Tool / agent execution accuracy
+
+For agentic systems:
+
+* correct tool selection
+* correct arguments
+* successful tool execution rate
+* unnecessary tool calls
+
+---
+
+## 2.5 Robustness
+
+Test behavior under:
+
+* adversarial prompts
+* noisy documents
+* ambiguous queries
+* long context inputs
+* partial tool failures
+
+---
+
+## 2.6 Efficiency
+
+System cost matters in production:
+
+* latency (P50, P95, P99)
+* token usage
+* tool call count
+* compute cost per request
+
+---
+
+# 3. Evaluation types
+
+---
+
+## 3.1 Offline evaluation (pre-deployment)
+
+You run fixed test suites:
+
+* golden datasets
+* synthetic inputs
+* curated edge cases
+
+✔ deterministic
+✔ reproducible
+
+---
+
+## 3.2 Online evaluation (production)
+
+Real user traffic:
+
+* click-through rate
+* user satisfaction
+* correction rate
+* abandonment rate
+
+✔ realistic
+❌ noisy
+
+---
+
+## 3.3 Shadow evaluation (safe deployment)
+
+Run new system alongside old:
+
+* no user impact
+* compare outputs
+
+✔ best for rollout safety
+
+---
+
+# 4. System-level evaluation pipeline
+
+```text id="p1"
+User Queries / Dataset
+        ↓
+LLM System (RAG + Agents + Tools)
+        ↓
+Outputs + Logs + Traces
+        ↓
+Evaluation Layer
+   ├── rule-based checks
+   ├── schema validation
+   ├── retrieval metrics
+   ├── LLM-as-judge
+   ├── human review
+        ↓
+Metrics Store
+        ↓
+Dashboards + Alerts
+```
+
+---
+
+# 5. LLM-as-a-judge (very important)
+
+Used when ground truth is unclear.
+
+Judge evaluates:
+
+* correctness
+* completeness
+* reasoning quality
+* hallucination
+
+But risks:
+
+* bias toward verbose answers
+* model preference bias
+
+So it is combined with:
+
+* human evaluation
+* rule-based checks
+
+---
+
+# 6. Golden dataset evaluation
+
+You maintain a dataset:
+
+```text id="g1"
+Q → expected outcome
+```
+
+Used to test:
+
+* regressions
+* prompt changes
+* model upgrades
+
+This is your **unit test suite for LLM systems**.
+
+---
+
+# 7. RAG system evaluation (deep breakdown)
+
+You must evaluate 3 stages separately:
+
+---
+
+## 7.1 Retrieval
+
+* recall@k
+* context relevance
+* chunk quality
+
+---
+
+## 7.2 Generation
+
+* correctness
+* hallucination rate
+* reasoning quality
+
+---
+
+## 7.3 End-to-end
+
+* final answer correctness
+* citation accuracy
+
+---
+
+# 8. Agent system evaluation (advanced)
+
+For multi-agent systems, measure:
+
+---
+
+## 8.1 Planning quality
+
+* correct decomposition of tasks
+
+---
+
+## 8.2 Coordination success
+
+* agents not conflicting
+* correct message passing
+
+---
+
+## 8.3 Tool usage efficiency
+
+* minimal unnecessary calls
+* correct tool selection
+
+---
+
+## 8.4 Looping / stability
+
+* no infinite loops
+* bounded execution steps
+
+---
+
+# 9. Key metrics in production
+
+---
+
+## 9.1 Accuracy metrics
+
+* task success rate
+* pass/fail rate
+
+---
+
+## 9.2 Quality metrics
+
+* LLM judge score
+* human rating
+
+---
+
+## 9.3 Retrieval metrics
+
+* recall@k
+* precision@k
+
+---
+
+## 9.4 System metrics
+
+* latency P95/P99
+* cost per request
+* token usage
+
+---
+
+## 9.5 Safety metrics
+
+* jailbreak success rate
+* injection success rate
+* unsafe tool calls
+
+---
+
+# 10. Observability (critical in real systems)
+
+You must log:
+
+* prompts
+* model version
+* retrieval results
+* tool calls
+* agent traces
+* final outputs
+
+Without this:
+
+> evaluation becomes guesswork
+
+---
+
+# 11. Common failure modes
+
+❌ only evaluating model accuracy (ignoring system)
+❌ no separation of retrieval vs generation issues
+❌ no golden dataset
+❌ no adversarial testing
+❌ no latency/cost tracking
+❌ no trace-level observability
+
+---
+
+# 12. Advanced techniques
+
+---
+
+## 12.1 Continuous evaluation (CI for LLMs)
+
+Every change triggers:
+
+* rerun benchmarks
+* compare metrics
+* block deployment if regression
+
+---
+
+## 12.2 A/B testing in production
+
+Compare:
+
+* system A vs system B
+* measure user satisfaction
+
+---
+
+## 12.3 Shadow mode evaluation
+
+Run new system silently:
+
+* compare outputs before rollout
+
+---
+
+## 12.4 Drift detection
+
+Detect when:
+
+* retrieval quality drops
+* model behavior changes
+* data distribution shifts
+
+---
+
+# 13. Key insight
+
+> LLM system evaluation is not about correctness of answers—it’s about reliability of a probabilistic pipeline under constraints.
+
+---
+
+# 14. Senior-level interview answer
+
+Evaluating LLM systems involves assessing the end-to-end performance of components such as prompts, retrieval systems, tool usage, and agent orchestration rather than just model accuracy. Key evaluation dimensions include task success rate, retrieval quality, hallucination rate, tool execution accuracy, robustness, latency, and cost efficiency.
+
+In production, evaluation is performed through a combination of offline golden datasets, LLM-as-a-judge scoring, rule-based validation, and human evaluation. For RAG and agentic systems, additional metrics such as grounding, retrieval recall, and tool correctness are critical. Continuous monitoring, A/B testing, and shadow deployments are used to ensure regression-free improvements and system stability over time.
+::`
+
+---
+
+# 15. Final intuition
+
+| Layer     | What you evaluate   |
+| --------- | ------------------- |
+| model     | reasoning ability   |
+| prompt    | instruction quality |
+| retrieval | knowledge access    |
+| tools     | external actions    |
+| system    | end-to-end success  |
+
+---
+
+If you want, I can go deeper into:
+
+* how to design a **full LLM evaluation framework (like OpenAI Evals / DeepEval style)**
+* or how companies build **automatic grading pipelines using LLM judges + human calibration**
+* or how to evaluate **multi-agent systems specifically (hardest level in production AI)**

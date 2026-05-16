@@ -1,0 +1,276 @@
+These two are often confused, but in production LLM systems they solve **very different bottlenecks**.
+
+At a senior level:
+
+* **Prompt caching = reuse identical computation**
+* **Semantic caching = reuse similar meaning**
+
+---
+
+# 🧠 1. Prompt Caching (Exact Match Cache)
+
+## What it is
+
+> Cache based on **exact same input prompt**
+
+If the prompt is identical byte-for-byte → return cached response.
+
+---
+
+## Example
+
+```text
+Input:
+"What is AI?"
+
+→ LLM computes once
+→ stores result
+
+Next request:
+"What is AI?"
+
+→ cache hit → instant response
+```
+
+---
+
+## Where it is applied
+
+### 1. Full response caching
+
+* prompt → response
+
+### 2. Prefix caching (very important in LLMs)
+
+* system prompt reused across requests
+
+### 3. KV cache reuse (inside model runtime)
+
+Used heavily in:
+
+* vLLM
+* TGI / TensorRT-LLM
+
+---
+
+## Why it works
+
+Because LLM computation is deterministic for:
+
+* same prompt
+* same model
+* same decoding parameters (temperature = 0)
+
+---
+
+## Benefits
+
+* 🚀 Sub-millisecond response
+* 💰 Massive cost savings
+* 🧠 Zero model execution required
+
+---
+
+## Limitations
+
+* ❌ Very low hit rate in real systems
+* ❌ Sensitive to small text changes
+
+  * “What is AI?” ≠ “Explain AI”
+
+---
+
+# 🧠 2. Semantic Caching (Meaning-Based Cache)
+
+## What it is
+
+> Cache based on **semantic similarity of meaning**, not exact text
+
+Instead of exact match, you compare:
+
+* embeddings
+* vector similarity
+
+---
+
+## Example
+
+These all mean the same thing:
+
+* “What is AI?”
+* “Explain artificial intelligence”
+* “Define AI”
+
+👉 Semantic cache returns same answer
+
+---
+
+## Architecture
+
+```text id="semantic_cache_flow"
+User query
+   ↓
+Embedding model
+   ↓
+Vector DB search (FAISS / Pinecone / Weaviate)
+   ↓
+Similarity check (cosine similarity > threshold)
+   ↓
+Cache hit → return stored response
+   ↓
+Miss → call LLM → store result
+```
+
+---
+
+## Mathematical view
+
+Similarity is often cosine:
+
+\text{cos}(\theta) = \frac{A \cdot B}{|A||B|}
+
+If similarity > threshold (e.g., 0.85):
+→ cache hit
+
+---
+
+## Benefits
+
+* 🔥 High cache hit rate
+* 💰 Reduces GPU usage significantly
+* ⚡ Faster response at scale
+
+---
+
+## Limitations
+
+* ❌ Risk of incorrect reuse (hallucination amplification)
+* ❌ Hard threshold tuning
+* ❌ Sensitive to embedding quality
+* ❌ Context-dependent meaning mismatch
+
+---
+
+# ⚙️ 3. Prompt Cache vs Semantic Cache (Core Difference)
+
+| Feature       | Prompt Cache       | Semantic Cache              |
+| ------------- | ------------------ | --------------------------- |
+| Matching type | Exact string match | Meaning similarity          |
+| Technique     | Hash / key-value   | Embeddings + vector search  |
+| Speed         | Fastest            | Slightly slower             |
+| Accuracy      | Perfect            | Approximate                 |
+| Hit rate      | Low                | High                        |
+| Risk          | None               | Possible wrong answer reuse |
+| Use case      | Repeated API calls | Conversational systems      |
+
+---
+
+# 🚀 4. Real production usage pattern
+
+In real LLM systems, you combine both:
+
+```text id="cache_pipeline"
+Request
+  ↓
+1. Prompt cache (exact match)
+  ↓ miss
+2. Semantic cache (embedding search)
+  ↓ miss
+3. LLM inference (vLLM / TGI)
+  ↓
+4. Store in both caches
+```
+
+---
+
+# 🧠 5. Where each is used
+
+## Prompt caching is best for:
+
+* system prompts
+* repeated API calls
+* deterministic workflows
+* tool responses
+
+---
+
+## Semantic caching is best for:
+
+* chatbots
+* customer support
+* FAQ systems
+* agent systems (RAG-heavy apps)
+
+---
+
+# ⚡ 6. Advanced production optimizations
+
+## 1. Multi-level semantic cache
+
+* global cache (all users)
+* tenant cache (per org)
+* session cache (per user)
+
+---
+
+## 2. Hybrid scoring (better accuracy)
+
+Instead of only similarity:
+
+```
+final_score =
+  0.7 * embedding_similarity +
+  0.2 * metadata_match +
+  0.1 * recency_score
+```
+
+---
+
+## 3. TTL-based freshness control
+
+* news queries → short TTL
+* static knowledge → long TTL
+
+---
+
+## 4. Cache invalidation strategy
+
+Hard problem in LLM systems:
+
+* model updates invalidate cache
+* knowledge drift over time
+* embeddings drift across versions
+
+---
+
+# 💰 7. Impact on system performance
+
+| Optimization   | Latency impact       | Cost impact           |
+| -------------- | -------------------- | --------------------- |
+| Prompt cache   | 🔥 near-zero latency | 🔥 huge savings       |
+| Semantic cache | ⚡ 2–10x faster       | 💰 30–80% GPU savings |
+
+---
+
+# 🧠 8. Senior-level takeaway
+
+> Prompt caching eliminates redundant computation through exact reuse, while semantic caching reduces computation by reusing semantically equivalent queries.
+
+In production LLM systems:
+
+* Prompt cache = **deterministic shortcut**
+* Semantic cache = **probabilistic acceleration layer**
+
+---
+
+# 🚀 If you want next-level depth
+
+I can go deeper into:
+
+* ⚡ Designing a production semantic cache (Redis + vector DB architecture)
+* 🧠 Choosing embedding models for caching (bge, e5, openai)
+* 🚀 Cache poisoning + hallucination risks
+* 💰 How ChatGPT-style systems do multi-layer caching
+* 🧩 End-to-end caching architecture for RAG systems
+
+Just tell me 👍

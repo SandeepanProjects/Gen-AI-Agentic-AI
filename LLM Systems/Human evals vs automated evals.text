@@ -1,0 +1,356 @@
+Human evals vs automated evals is one of the most important tradeoffs in **LLM system evaluation**, because it directly impacts cost, scalability, and reliability.
+
+A senior framing:
+
+> Human eval = high-fidelity ground truth from people
+> Automated eval = scalable approximation using rules or models
+
+---
+
+# 1. Human evaluation
+
+## 1.1 What it is
+
+Humans manually judge model outputs based on criteria like:
+
+* correctness
+* reasoning quality
+* helpfulness
+* safety
+* clarity
+
+---
+
+## 1.2 Example
+
+User asks:
+
+> “Explain why FAISS is used in RAG”
+
+Two model outputs are shown → human selects better one.
+
+---
+
+## 1.3 Types of human evaluation
+
+### (A) Rating-based
+
+Score 1–5 or 1–10:
+
+* correctness
+* relevance
+* fluency
+
+---
+
+### (B) Pairwise comparison (most reliable)
+
+Human chooses:
+
+* Output A vs Output B
+
+✔ reduces bias
+✔ more consistent than scoring
+
+---
+
+### (C) Rubric-based evaluation
+
+Strict checklist:
+
+* Is answer grounded?
+* Is reasoning valid?
+* Is format correct?
+
+---
+
+## 1.4 Strengths
+
+✔ highest quality signal
+✔ catches subtle reasoning errors
+✔ detects hallucinations well
+✔ aligns with real user experience
+
+---
+
+## 1.5 Weaknesses
+
+❌ expensive
+❌ slow
+❌ not scalable
+❌ inconsistent between annotators
+❌ subjective bias
+
+---
+
+# 2. Automated evaluation
+
+## 2.1 What it is
+
+Machine-based evaluation using:
+
+* rules
+* metrics
+* LLM judges
+* embeddings
+* statistical scoring
+
+---
+
+## 2.2 Types of automated eval
+
+---
+
+### (A) Rule-based evaluation
+
+Example:
+
+* JSON valid?
+* required fields present?
+* regex match?
+
+✔ deterministic
+✔ fast
+❌ shallow
+
+---
+
+### (B) Metric-based evaluation
+
+Used in NLP:
+
+* BLEU
+* ROUGE
+* exact match
+* F1 score
+
+✔ good for structured tasks
+❌ weak for reasoning tasks
+
+---
+
+### (C) Embedding-based evaluation
+
+Compare semantic similarity:
+
+* cosine similarity
+* vector distance
+
+✔ good for paraphrase tasks
+❌ not exact correctness
+
+---
+
+### (D) LLM-as-a-judge
+
+Another model evaluates output:
+
+```text id="j1"
+Rate correctness from 1–10
+```
+
+✔ scalable human-like evaluation
+❌ can be biased or inconsistent
+
+---
+
+# 3. Core comparison
+
+| Aspect              | Human Eval | Automated Eval                    |
+| ------------------- | ---------- | --------------------------------- |
+| Quality             | very high  | medium                            |
+| Scalability         | low        | high                              |
+| Cost                | expensive  | cheap                             |
+| Speed               | slow       | fast                              |
+| Consistency         | medium     | high (rules) / medium (LLM judge) |
+| Reasoning detection | excellent  | limited                           |
+
+---
+
+# 4. Key tradeoff
+
+> Human eval = accuracy of judgment
+> Automated eval = scalability of judgment
+
+---
+
+# 5. Why we need both
+
+In production LLM systems:
+
+---
+
+## Only human eval → not scalable
+
+* cannot evaluate thousands of prompts
+* slow iteration cycles
+* expensive labeling
+
+---
+
+## Only automated eval → not reliable
+
+* misses nuanced failures
+* overfits to metrics
+* blind to reasoning quality
+
+---
+
+# 6. Production evaluation stack (best practice)
+
+```text id="p1"
+        Human Evaluation
+              ↑
+      LLM-as-Judge Layer
+              ↑
+      Rule-based Metrics
+              ↑
+        System Outputs
+```
+
+---
+
+# 7. Where each is used
+
+---
+
+## 7.1 Human eval is used for:
+
+* gold dataset creation
+* model benchmarking
+* safety evaluation
+* alignment checks
+* final product validation
+
+---
+
+## 7.2 Automated eval is used for:
+
+* CI/CD pipelines
+* regression testing
+* prompt iteration
+* large-scale monitoring
+* real-time feedback loops
+
+---
+
+# 8. LLM-as-a-judge (hybrid approach)
+
+This is the most important modern technique.
+
+It sits between human and automated eval:
+
+* scalable like automation
+* expressive like human judgment
+
+But requires:
+
+* calibration against human ratings
+* bias control
+* multiple judge models sometimes
+
+---
+
+# 9. Evaluation agreement problem
+
+A key concept:
+
+> How often does automated evaluation match human judgment?
+
+This is called:
+
+* inter-rater agreement (for humans)
+* human-model agreement (for LLM judges)
+
+---
+
+# 10. Common failure modes
+
+---
+
+## Human eval failures
+
+❌ inconsistent rubrics
+❌ fatigue bias
+❌ subjective scoring drift
+❌ low sample coverage
+
+---
+
+## Automated eval failures
+
+❌ metric mismatch with real quality
+❌ reward hacking (over-optimizing metrics)
+❌ hallucinated correctness (LLM judges)
+❌ shallow rule-based checks
+
+---
+
+# 11. Advanced production strategies
+
+---
+
+## 11.1 Human-in-the-loop sampling
+
+Only evaluate:
+
+* hardest cases
+* uncertain outputs
+* model disagreements
+
+---
+
+## 11.2 Active evaluation
+
+System selects cases where it is unsure.
+
+---
+
+## 11.3 Multi-layer evaluation
+
+Combine:
+
+* rule checks
+* LLM judge
+* human review
+
+---
+
+## 11.4 Calibration loop
+
+Use human eval to:
+
+* tune LLM judge
+* improve automated metrics
+
+---
+
+# 12. Key insight
+
+> Human evaluation defines “what good looks like,” while automated evaluation scales it.
+
+---
+
+# 13. Senior-level interview answer
+
+Human evaluation involves manual assessment of LLM outputs by human annotators based on criteria such as correctness, relevance, reasoning quality, and safety. It provides high-fidelity judgments but is expensive, slow, and difficult to scale.
+
+Automated evaluation uses rule-based systems, statistical metrics, embedding similarity, or LLM-as-a-judge approaches to assess outputs at scale. While automated methods enable rapid iteration and continuous monitoring, they may lack the nuance and reliability of human judgment. In production systems, a hybrid approach is used where human evaluation defines ground truth and calibrates automated evaluation systems for scalability.
+::`
+
+---
+
+# 14. Final intuition
+
+| Method         | Meaning                       |
+| -------------- | ----------------------------- |
+| human eval     | “what is actually correct?”   |
+| automated eval | “can we measure it at scale?” |
+
+---
+
+If you want, I can go deeper into:
+
+* how companies build **human evaluation pipelines at scale (labeling ops + rubrics + QA systems)**
+* or how to design **LLM judge systems that match human agreement (>90%)**
+* or how evaluation feeds into **reward models / RLHF-style training loops (very senior topic)**
