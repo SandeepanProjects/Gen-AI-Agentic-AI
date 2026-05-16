@@ -1,0 +1,351 @@
+Agent memory is one of the most important parts of production agentic systems—and also one of the easiest places to get it wrong.
+
+> Senior framing: “memory is not storage — it is a retrieval + relevance + update system.”
+
+Agents don’t just *store* information; they must **decide what to remember, when to retrieve it, and when to forget it**.
+
+---
+
+# 1. Types of memory in agents
+
+## 1.1 Short-term memory (working memory)
+
+* LLM context window
+* current conversation state
+* immediate tool outputs
+
+✔ fast
+❌ limited size
+❌ ephemeral
+
+---
+
+## 1.2 Long-term memory
+
+Stored externally:
+
+* vector database (semantic memory)
+* key-value stores (facts/preferences)
+* structured databases
+
+---
+
+## 1.3 Episodic memory
+
+“what happened in past interactions”
+
+Example:
+
+* previous tasks
+* user interactions
+* tool results
+
+---
+
+## 1.4 Semantic memory
+
+“facts the agent knows about the world/user”
+
+Example:
+
+* “User prefers Python”
+* “Project uses FAISS”
+
+---
+
+# 2. Core architecture of agent memory
+
+```text id="m1"
+User Input
+   ↓
+Working Memory (context window)
+   ↓
+Memory Retrieval (vector DB / KV store)
+   ↓
+Memory Injection into prompt
+   ↓
+LLM reasoning
+   ↓
+Memory Update Module
+   ↓
+Storage (long-term memory)
+```
+
+---
+
+# 3. How memory is stored
+
+## 3.1 Vector-based memory (most common)
+
+Each memory is embedded:
+
+m_i = f(\text{experience}_i)
+
+Stored in vector DB with metadata:
+
+* timestamp
+* type (fact / event / preference)
+* importance score
+
+---
+
+## 3.2 Structured memory (key-value)
+
+Example:
+
+```json id="s1"
+{
+  "user_name": "Sandeepan",
+  "preferred_language": "Python",
+  "domain": "AI systems"
+}
+```
+
+---
+
+## 3.3 Episodic logs
+
+Append-only store:
+
+```text id="e1"
+2026-05-16: Asked about RAG optimization
+2026-05-16: Discussed tool hallucination
+```
+
+---
+
+# 4. Memory retrieval (critical part)
+
+At query time:
+
+## Step 1: embed query
+
+## Step 2: similarity search
+
+## Step 3: filter by metadata
+
+## Step 4: rank memories
+
+---
+
+## Retrieval scoring:
+
+\mathrm{score} = \alpha \cdot \mathrm{similarity} + \beta \cdot \mathrm{recency} + \gamma \cdot \mathrm{importance}
+
+---
+
+# 5. Memory write strategy (VERY important)
+
+Not everything should be stored.
+
+You need a **memory filter gate**:
+
+---
+
+## 5.1 What to store
+
+✔ stable facts
+✔ user preferences
+✔ repeated behaviors
+✔ long-term goals
+✔ important events
+
+---
+
+## 5.2 What NOT to store
+
+❌ one-off questions
+❌ transient info
+❌ redundant chat history
+❌ low-value noise
+
+---
+
+# 6. Memory update strategies
+
+---
+
+## 6.1 Write-once memory
+
+* immutable facts
+* never updated
+
+Example: user name
+
+---
+
+## 6.2 Updateable memory
+
+* preferences
+* evolving facts
+
+Example:
+
+> “User prefers concise answers” → may change
+
+---
+
+## 6.3 Decay-based memory
+
+Old memories lose weight over time:
+
+w_t = w_0 \cdot e^{-\lambda t}
+
+---
+
+# 7. Memory consolidation (advanced concept)
+
+Instead of storing raw logs:
+
+* compress conversations into summaries
+* extract key facts
+* merge duplicates
+
+---
+
+## Example:
+
+Raw:
+
+* asked about RAG
+* asked about embeddings
+* asked about vector DB
+
+Consolidated memory:
+
+> “User is working on RAG systems with vector search.”
+
+---
+
+# 8. Memory injection strategies
+
+How memory is fed back into the LLM:
+
+---
+
+## 8.1 Hard injection
+
+Directly appended:
+
+```text id="i1"
+User preferences:
+- likes Python
+- working on RAG
+```
+
+---
+
+## 8.2 Soft injection (retrieval-based)
+
+Only top-k relevant memories included.
+
+---
+
+## 8.3 Tool-based memory access
+
+Agent calls:
+
+* `retrieve_memory(query)`
+* `store_memory(fact)`
+
+---
+
+# 9. Common problems in agent memory
+
+---
+
+## ❌ 1. Memory overload
+
+Too many irrelevant memories degrade performance
+
+---
+
+## ❌ 2. Contradictory memories
+
+Old vs new preferences conflict
+
+---
+
+## ❌ 3. Retrieval noise
+
+Wrong memories injected into context
+
+---
+
+## ❌ 4. No decay mechanism
+
+Old info never removed → stale behavior
+
+---
+
+## ❌ 5. Over-personalization
+
+Agent becomes biased toward user history
+
+---
+
+# 10. Production-grade memory architecture
+
+```text id="p1"
+                ┌──────────────┐
+User Query →    │ LLM Agent     │
+                └──────┬───────┘
+                       ↓
+          Memory Retrieval System
+        ┌──────────┬───────────┐
+        ↓          ↓           ↓
+ Vector DB   KV Store    Episodic DB
+        ↓          ↓           ↓
+        └──────Ranking + Filtering─────┘
+                       ↓
+                Injected Context
+                       ↓
+                    LLM
+                       ↓
+              Memory Update Engine
+```
+
+---
+
+# 11. Tools used in real systems
+
+* Pinecone → vector memory store
+* Weaviate → hybrid memory + filtering
+* Redis → short-term memory caching
+* PostgreSQL → structured memory
+
+---
+
+# 12. Senior-level interview answer
+
+Agent memory in production systems is typically implemented as a multi-layer architecture consisting of short-term working memory (context window), long-term semantic memory (vector databases), and structured key-value or episodic storage.
+
+Memory is retrieved dynamically using similarity search combined with metadata filtering and ranking based on relevance, recency, and importance. To maintain quality, systems implement memory write filters, consolidation mechanisms, and decay functions to prevent noise accumulation and ensure that only high-value information is persisted and reused in future interactions.
+::`
+
+---
+
+# 13. Final intuition
+
+Think of agent memory like:
+
+| Type       | Analogy                |
+| ---------- | ---------------------- |
+| short-term | working memory (brain) |
+| long-term  | notebook / database    |
+| episodic   | diary                  |
+| semantic   | knowledge base         |
+
+---
+
+# 14. Key takeaway
+
+> The hardest part of agent memory is not storing information — it is deciding what NOT to store and what to retrieve.
+
+---
+
+If you want, I can go deeper into:
+
+* how ChatGPT-style memory systems are built in production
+* or how to design a **memory + RAG + agent hybrid system (very senior architecture)**
+* or how memory conflicts are resolved in multi-agent systems (advanced topic)

@@ -1,0 +1,284 @@
+# Speculative Decoding — Senior AI Engineer Explanation
+
+Speculative decoding is a **latency optimization technique for LLM inference** that speeds up generation by:
+
+> using a *small fast model to “guess” tokens*, and a *large model to verify them in batches*.
+
+It reduces the number of expensive forward passes of the large model.
+
+---
+
+# 1. The Problem It Solves
+
+Autoregressive decoding is inherently slow:
+
+```text id="s1"
+token1 → token2 → token3 → token4 → ...
+```
+
+Each step requires:
+
+* full forward pass through a large transformer
+* KV-cache update
+* sampling
+
+So latency scales linearly with sequence length.
+
+---
+
+# 2. Core Idea
+
+Instead of generating tokens one-by-one with a big model:
+
+> Let a **small “draft model” propose multiple tokens at once**, then let the **large model verify them in parallel**.
+
+---
+
+# 3. Two-Model Setup
+
+## Draft Model (Small, Fast)
+
+* cheap
+* low latency
+* less accurate
+* generates candidate tokens quickly
+
+## Target Model (Large, Accurate)
+
+* slow
+* expensive
+* high quality
+* verifies tokens
+
+---
+
+# 4. High-Level Flow
+
+```text id="s2"
+Small Model (draft):
+  x → y1, y2, y3, y4
+
+Large Model (verify):
+  checks y1, y2, y3, y4 in parallel
+```
+
+---
+
+# 5. Step-by-Step Process
+
+## Step 1: Drafting
+
+Small model generates k tokens:
+
+```text id="s3"
+Input: "The sky is"
+Draft: ["blue", "and", "clear", "today"]
+```
+
+---
+
+## Step 2: Verification
+
+Large model evaluates these tokens in one pass.
+
+It computes probabilities:
+
+```text id="s4"
+P(blue | context)
+P(and | context)
+P(clear | context)
+P(today | context)
+```
+
+---
+
+## Step 3: Acceptance Rule
+
+For each token:
+
+* if draft token matches high-probability token → accept
+* else → reject and resample
+
+---
+
+# 6. Key Insight
+
+Instead of:
+
+```text id="s5"
+O(n) large-model forward passes
+```
+
+we get:
+
+```text id="s6"
+O(n / k) large-model passes + cheap draft computation
+```
+
+where k is number of speculative tokens.
+
+---
+
+# 7. Why It Works
+
+Because:
+
+> Small models often approximate the token distribution of large models reasonably well.
+
+So many proposed tokens are:
+
+* already likely under the large model
+* therefore accepted without correction
+
+---
+
+# 8. Mathematical Intuition
+
+Let:
+
+* (p) = large model distribution
+* (q) = draft model distribution
+
+We sample from (q), then accept based on (p).
+
+Acceptance probability:
+
+\alpha = \min\left(1, \frac{p(x)}{q(x)}\right)
+
+This ensures:
+
+* final distribution matches large model exactly
+* no bias introduced
+
+---
+
+# 9. Why It Is Safe
+
+Even though we “guess” tokens:
+
+* rejection sampling ensures correctness
+* final output distribution remains identical to target model
+
+So:
+
+> Speed increases, but model quality is preserved.
+
+---
+
+# 10. Performance Gains
+
+Typical improvements:
+
+| Model Size       | Speedup                 |
+| ---------------- | ----------------------- |
+| 7B + 70B setup   | 2× – 3×                 |
+| large MoE models | up to ~4× in some cases |
+
+Depends on:
+
+* draft model quality
+* acceptance rate
+* batch size
+* hardware
+
+---
+
+# 11. Key Tradeoff
+
+| Factor          | Better Draft Model | Worse Draft Model |
+| --------------- | ------------------ | ----------------- |
+| speed           | high               | moderate          |
+| acceptance rate | high               | low               |
+| compute savings | high               | low               |
+
+---
+
+# 12. Where KV Cache Fits
+
+Speculative decoding works with KV caching:
+
+* draft model builds its own cache
+* target model reuses KV cache
+* verification can be batched efficiently
+
+This is critical for real-time systems.
+
+---
+
+# 13. Why It’s Important in Production
+
+Speculative decoding is widely used in:
+
+* chat systems
+* AI copilots
+* API inference servers
+* high-throughput LLM APIs
+
+Because it directly reduces:
+
+* latency
+* GPU cost
+* inference bottlenecks
+
+---
+
+# 14. Comparison with Other Optimizations
+
+| Technique            | Goal                               |
+| -------------------- | ---------------------------------- |
+| KV cache             | avoid recomputing attention        |
+| quantization         | reduce precision cost              |
+| batching             | improve GPU utilization            |
+| MoE                  | sparse activation                  |
+| speculative decoding | reduce number of large model steps |
+
+---
+
+# 15. Intuition
+
+Think of it like:
+
+| Role         | Analogy                         |
+| ------------ | ------------------------------- |
+| Draft model  | fast assistant guessing answers |
+| Large model  | expert reviewer                 |
+| Speculation  | draft answers first             |
+| Verification | expert approves or corrects     |
+
+---
+
+# 16. When It Works Best
+
+Speculative decoding works well when:
+
+* small model is well-aligned with large model
+* tasks are predictable (chat, code, QA)
+* output distribution is not highly chaotic
+
+Works poorly when:
+
+* highly creative generation
+* very uncertain token distributions
+
+---
+
+# 17. Senior-Level Interview Answer
+
+A strong answer:
+
+Speculative decoding is an inference optimization technique where a smaller draft model generates candidate tokens, and a larger target model verifies them in parallel.
+
+Accepted tokens are those that match the target model’s distribution under a rejection sampling scheme, ensuring exact equivalence to standard autoregressive decoding while reducing the number of expensive large-model forward passes.
+
+This significantly reduces latency in production LLM systems while preserving output quality.
+::`
+
+---
+
+# 18. Final Intuition
+
+Think of it as:
+
+> “Guess first, verify later — but mathematically guaranteed to be correct.”
+
+It’s one of the most important modern optimizations behind fast LLM serving systems like ChatGPT-style inference pipelines.

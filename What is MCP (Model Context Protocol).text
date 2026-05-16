@@ -1,0 +1,306 @@
+**MCP (Model Context Protocol)** is a standardized way for LLM applications to **connect models to external tools, data sources, and services** in a consistent, secure, and structured manner.
+
+A senior framing:
+
+> MCP is to AI tools what **HTTP was to the web** — a universal protocol layer for connecting “models ↔ context providers”.
+
+It was introduced to solve a real production problem:
+
+> Every agent framework was reinventing tool-calling + data integration differently.
+
+---
+
+# 1. What MCP actually is
+
+MCP defines a **standard protocol between:**
+
+* **MCP client** → the LLM application (agent, IDE, chat app)
+* **MCP server** → a tool/data provider (GitHub, DB, filesystem, APIs)
+
+---
+
+## Core idea
+
+```text id="m1"
+LLM App (Client) ⇄ MCP ⇄ Tool/Data Server
+```
+
+Instead of custom integrations per tool.
+
+---
+
+# 2. Why MCP exists
+
+Before MCP:
+
+* every tool had custom API wiring
+* each agent framework implemented its own tool schema
+* integrations were brittle and non-portable
+* tool hallucination + schema mismatch was common
+
+---
+
+## MCP goal:
+
+> “Write tools once, use everywhere across models and agents.”
+
+---
+
+# 3. What MCP standardizes
+
+MCP defines 3 main primitives:
+
+---
+
+## 3.1 Tools (actions)
+
+Functions the model can call:
+
+* search()
+* query_database()
+* run_code()
+* fetch_file()
+
+---
+
+## 3.2 Resources (data access)
+
+Structured or unstructured context:
+
+* files
+* documents
+* DB rows
+* logs
+* knowledge bases
+
+---
+
+## 3.3 Prompts (templates)
+
+Reusable prompt logic:
+
+* system prompts
+* task templates
+* workflows
+
+---
+
+# 4. MCP architecture
+
+```text id="m2"
+           ┌────────────────────┐
+           │   LLM / Agent      │
+           └─────────┬──────────┘
+                     ↓
+           MCP Client Layer
+                     ↓
+        ┌──────────────────────┐
+        │   MCP Protocol       │
+        └──────────────────────┘
+        ↓          ↓           ↓
+  MCP Server   MCP Server   MCP Server
+ (GitHub)      (DB)         (Filesystem)
+```
+
+---
+
+# 5. How MCP works (flow)
+
+## Step 1: discovery
+
+Client asks:
+
+* what tools are available?
+
+---
+
+## Step 2: tool selection
+
+LLM selects tool via structured schema.
+
+---
+
+## Step 3: execution
+
+Client calls MCP server.
+
+---
+
+## Step 4: response
+
+Server returns structured output.
+
+---
+
+## Step 5: injection
+
+Result is injected back into LLM context.
+
+---
+
+# 6. MCP vs traditional tool calling
+
+| Feature     | Traditional tools | MCP          |
+| ----------- | ----------------- | ------------ |
+| Integration | custom per tool   | standardized |
+| Portability | low               | high         |
+| Schema      | inconsistent      | unified      |
+| Reuse       | poor              | strong       |
+| Debugging   | fragmented        | centralized  |
+
+---
+
+# 7. MCP vs function calling
+
+Important distinction:
+
+| Concept          | Scope                                |
+| ---------------- | ------------------------------------ |
+| Function calling | model-level tool invocation          |
+| MCP              | system-level tool ecosystem protocol |
+
+👉 MCP is **broader than function calling**
+
+---
+
+# 8. MCP vs agent frameworks
+
+| System    | Role                         |
+| --------- | ---------------------------- |
+| LangChain | orchestration framework      |
+| LangGraph | workflow/state engine        |
+| ReAct     | reasoning pattern            |
+| MCP       | tool/data connectivity layer |
+
+---
+
+# 9. Why MCP matters in production
+
+## 9.1 Eliminates tool fragmentation
+
+No more:
+
+* custom API wrappers per agent framework
+
+---
+
+## 9.2 Enables plug-and-play tools
+
+Any MCP-compatible tool works with any model.
+
+---
+
+## 9.3 Improves security
+
+* controlled tool exposure
+* permissioned access
+* sandboxed execution
+
+---
+
+## 9.4 Standardizes context injection
+
+No more ad-hoc prompt stuffing.
+
+---
+
+# 10. Real-world MCP use cases
+
+* IDE assistants accessing filesystem + git
+* enterprise agents querying internal DBs
+* RAG systems pulling from document stores
+* Dev agents running code safely
+* multi-tool workflows (search + DB + APIs)
+
+---
+
+# 11. Key design insight
+
+> MCP separates “model reasoning” from “tool infrastructure”.
+
+So:
+
+* LLM = brain
+* MCP = nervous system
+* tools = muscles
+
+---
+
+# 12. Production architecture with MCP
+
+```text id="p1"
+User Query
+   ↓
+LLM Agent
+   ↓
+MCP Client Layer
+   ↓
+MCP Router
+   ↓
+Tool Servers (DB / Search / Files / APIs)
+   ↓
+Results
+   ↓
+LLM Reasoning
+   ↓
+Final Answer
+```
+
+---
+
+# 13. Why MCP improves reliability
+
+Without MCP:
+
+* tool schema drift
+* inconsistent APIs
+* hallucinated tool calls
+* brittle integrations
+
+With MCP:
+
+* standardized contracts
+* typed interfaces
+* discoverable tools
+* predictable execution
+
+---
+
+# 14. Limitations of MCP
+
+Even though powerful:
+
+* still requires good agent design
+* doesn’t solve hallucination alone
+* can introduce latency overhead
+* requires server ecosystem maturity
+
+---
+
+# 15. Senior-level interview answer
+
+The Model Context Protocol (MCP) is a standardized communication layer that enables LLM-based applications to interact with external tools, data sources, and services through a unified interface. It defines a consistent protocol for tool invocation, resource access, and prompt management, allowing models to dynamically discover and use capabilities exposed by MCP servers.
+
+Unlike traditional function calling, which is model-specific, MCP operates at the system level and decouples model reasoning from tool infrastructure. This improves portability, reduces integration complexity, and enables secure, reusable tool ecosystems across different LLM applications.
+::`
+
+---
+
+# 16. Final intuition
+
+Think of MCP like:
+
+| Concept | Analogy                |
+| ------- | ---------------------- |
+| MCP     | USB-C for AI tools     |
+| tools   | external devices       |
+| LLM     | operating system brain |
+| servers | hardware drivers       |
+
+---
+
+If you want, I can go deeper into:
+
+* MCP vs LangChain tools vs OpenAI function calling (deep comparison)
+* how to design a **production MCP server for enterprise RAG systems**
+* or how MCP enables **multi-agent ecosystems at scale (very senior architecture topic)**

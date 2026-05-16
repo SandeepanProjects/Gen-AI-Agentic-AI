@@ -1,0 +1,419 @@
+# Top-k vs Top-p Sampling — Senior AI Engineer Explanation
+
+Both **Top-k** and **Top-p (nucleus) sampling** are decoding strategies used during LLM generation to control:
+
+* randomness
+* diversity
+* coherence
+* hallucination risk
+
+They determine **which candidate tokens are allowed during next-token generation**.
+
+These techniques are commonly used together with temperature.
+
+---
+
+# Why Sampling Exists
+
+After a transformer predicts logits:
+
+```text id="3qvlxp"
+"The sky is"
+```
+
+the model may output probabilities:
+
+| Token     | Probability |
+| --------- | ----------- |
+| blue      | 0.70        |
+| clear     | 0.12        |
+| gray      | 0.08        |
+| beautiful | 0.05        |
+| pizza     | 0.0001      |
+
+If we always choose the highest probability token:
+
+* outputs become repetitive
+* creativity disappears
+
+Sampling introduces controlled randomness.
+
+---
+
+# Top-k Sampling
+
+Top-k sampling restricts generation to the:
+
+> **k most probable tokens**
+
+Everything else is discarded.
+
+---
+
+# Example
+
+Suppose probabilities:
+
+| Token | Probability |
+| ----- | ----------- |
+| blue  | 0.50        |
+| gray  | 0.20        |
+| clear | 0.15        |
+| red   | 0.10        |
+| pizza | 0.05        |
+
+If:
+
+```text id="jlwmx4"
+top_k = 3
+```
+
+Allowed tokens:
+
+```text id="3r5wev"
+blue
+gray
+clear
+```
+
+Discarded:
+
+```text id="3jlwm"
+red
+pizza
+```
+
+Then probabilities are renormalized.
+
+---
+
+# Mathematical Intuition
+
+Keep only:
+
+k=\text{top highest probability tokens}
+
+Then sample from this reduced set.
+
+---
+
+# Advantages of Top-k
+
+* simple
+* stable
+* reduces nonsense generation
+* prevents extremely unlikely tokens
+
+---
+
+# Problems with Top-k
+
+Fixed cutoff can be suboptimal.
+
+Example:
+
+---
+
+## Scenario 1 — Sharp Distribution
+
+```text id="56zqpn"
+[0.95, 0.03, 0.01, ...]
+```
+
+Top-50 is unnecessary.
+
+---
+
+## Scenario 2 — Flat Distribution
+
+```text id="84z3gb"
+[0.10, 0.09, 0.08, 0.07...]
+```
+
+Top-5 may remove useful diversity.
+
+So fixed (k) adapts poorly.
+
+---
+
+# Top-p (Nucleus Sampling)
+
+Top-p dynamically selects:
+
+> the smallest set of tokens whose cumulative probability exceeds (p)
+
+Instead of fixed token count.
+
+---
+
+# Example
+
+Suppose:
+
+| Token | Probability |
+| ----- | ----------- |
+| blue  | 0.50        |
+| gray  | 0.20        |
+| clear | 0.15        |
+| red   | 0.10        |
+| pizza | 0.05        |
+
+If:
+
+```text id="r2my8z"
+top_p = 0.80
+```
+
+Cumulative probabilities:
+
+| Token | Cumulative |
+| ----- | ---------- |
+| blue  | 0.50       |
+| gray  | 0.70       |
+| clear | 0.85       |
+
+Stop at:
+
+* blue
+* gray
+* clear
+
+because cumulative probability crossed 0.80.
+
+---
+
+# Key Difference
+
+## Top-k
+
+Fixed number of tokens.
+
+```text id="zjlwm"
+Always keep exactly k tokens
+```
+
+---
+
+## Top-p
+
+Dynamic number of tokens.
+
+```text id="m24r6k"
+Keep enough tokens to cover probability mass p
+```
+
+---
+
+# Why Top-p Became Popular
+
+Top-p adapts better to:
+
+* confident distributions
+* uncertain distributions
+* changing entropy
+
+This generally produces:
+
+* more natural text
+* better creativity/coherence balance
+
+---
+
+# Visual Intuition
+
+---
+
+## Top-k
+
+```text id="gsq8hq"
+Always keep:
+Top 50 tokens
+```
+
+even if:
+
+* token #50 has near-zero probability
+
+---
+
+## Top-p
+
+```text id="l5n11f"
+Keep only meaningful probability mass
+```
+
+Much smarter adaptivity.
+
+---
+
+# Production Defaults
+
+Modern LLM systems often prefer:
+
+```text id="a9j5d5"
+top_p = 0.9
+```
+
+instead of heavy top-k usage.
+
+Typical configs:
+
+| Setting     | Common Value |
+| ----------- | ------------ |
+| temperature | 0.7          |
+| top_p       | 0.9          |
+| top_k       | 40–100       |
+
+---
+
+# Relationship with Temperature
+
+Pipeline usually:
+
+```text id="jlwm99"
+Logits
+ ↓
+Temperature scaling
+ ↓
+Top-k / Top-p filtering
+ ↓
+Sampling
+```
+
+Temperature:
+
+* changes probability distribution
+
+Top-k / Top-p:
+
+* restrict candidate tokens
+
+---
+
+# Example Together
+
+Suppose:
+
+* temperature = 0.8
+* top_p = 0.9
+
+Process:
+
+1. logits softened slightly
+2. smallest token set covering 90% probability retained
+3. sample from that set
+
+---
+
+# Senior-Level Insight
+
+Sampling strategies fundamentally control:
+
+* exploration vs exploitation
+* creativity vs reliability
+* diversity vs hallucination
+
+This is extremely important in:
+
+* chat systems
+* coding copilots
+* AI agents
+* creative generation
+* RAG systems
+
+---
+
+# Agentic AI Considerations
+
+Agentic workflows often use:
+
+```text id="k5v1l8"
+low temperature
+low top_p
+```
+
+because agents require:
+
+* consistency
+* reproducibility
+* deterministic planning
+* reliable tool invocation
+
+Creative sampling can destabilize:
+
+* reasoning chains
+* API calls
+* structured outputs
+
+---
+
+# Common Production Patterns
+
+---
+
+## Coding Models
+
+Usually:
+
+```text id="zw6p0j"
+temperature = 0.1
+top_p = 0.95
+```
+
+to maintain precision.
+
+---
+
+## Creative Writing
+
+Usually:
+
+```text id="ph5frq"
+temperature = 1.0
+top_p = 0.95
+```
+
+to encourage diversity.
+
+---
+
+## Enterprise QA
+
+Usually:
+
+```text id="s72qv0"
+temperature = 0.0–0.2
+top_p = 0.8–0.9
+```
+
+to reduce hallucinations.
+
+---
+
+# Important Interview Insight
+
+Strong senior-level answer:
+
+Top-k sampling restricts generation to a fixed number of candidate tokens.
+
+Top-p sampling dynamically selects the smallest token set whose cumulative probability exceeds a threshold p.
+
+Top-p generally adapts better to changing probability distributions and is more commonly used in modern LLM systems because it balances diversity and coherence more effectively.
+::}
+
+---
+
+# Final Intuition
+
+Think of it like this:
+
+| Method | Analogy                                                       |
+| ------ | ------------------------------------------------------------- |
+| Top-k  | “Always consider top 50 choices.”                             |
+| Top-p  | “Consider only meaningful choices covering most probability.” |
+
+Top-p is adaptive.
+
+Top-k is fixed.
+
+Modern LLM systems typically prefer top-p because language distributions vary significantly across contexts.

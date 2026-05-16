@@ -1,0 +1,327 @@
+Reducing inference latency in LLM systems is a **systems + model + serving co-design problem**, not a single trick. In senior interviews, the expectation is to structure it across the full stack:
+
+> **Latency = Model compute + Memory bandwidth + Network + Scheduling overhead**
+
+So you reduce latency by attacking each bottleneck.
+
+---
+
+# 1. Model-Level Optimizations
+
+## a) Use smaller / distilled models
+
+* Replace large teacher with a distilled student
+* Or use task-specific fine-tuned models
+
+✔ Reduces FLOPs directly
+✔ Biggest lever if quality allows
+
+---
+
+## b) Quantization
+
+Reduce precision of weights/activations:
+
+* FP16 → INT8 → INT4
+
+Benefits:
+
+* faster matrix multiplications
+* lower memory bandwidth
+* better GPU utilization
+
+Tradeoff:
+
+* slight quality drop if aggressive
+
+---
+
+## c) Mixture of Experts (MoE)
+
+Only activate part of model per token:
+
+* Top-1 / Top-2 experts
+* Sparse activation
+
+✔ Reduces compute per token
+✔ Keeps large parameter capacity
+
+---
+
+# 2. Decoding-Level Optimizations (VERY IMPORTANT)
+
+## a) KV Cache (mandatory baseline)
+
+Avoid recomputing attention:
+
+* store K and V tensors
+* reuse across tokens
+
+Without it → catastrophic latency
+
+---
+
+## b) Speculative Decoding
+
+Use small model to draft tokens:
+
+* small model generates k tokens
+* large model verifies in batch
+
+✔ reduces number of large-model forward passes
+✔ major latency improvement (2×–4× typical)
+
+---
+
+## c) Reduce output length
+
+* enforce max tokens
+* summarize outputs
+* structured responses
+
+Because latency is linear in tokens:
+
+T_{latency} \propto n_{tokens}
+
+---
+
+## d) Greedy / low-sampling settings
+
+* temperature = 0
+* top-p = low or disabled
+
+✔ reduces sampling overhead
+✔ improves determinism
+
+---
+
+# 3. Attention & Compute Optimizations
+
+## a) FlashAttention
+
+Optimized attention kernel:
+
+* reduces memory reads/writes
+* improves GPU throughput
+
+✔ huge speedups for long context
+
+---
+
+## b) Reduce context window
+
+Latency grows with sequence length:
+
+O(n^2)
+
+So:
+
+* shorten prompts
+* use RAG instead of long context
+* summarize history
+
+---
+
+## c) Sliding window / sparse attention
+
+Instead of full attention:
+
+* attend to recent tokens only
+* or sparse patterns
+
+---
+
+# 4. Serving & System-Level Optimizations
+
+## a) Continuous batching
+
+Instead of static batching:
+
+* dynamically batch incoming requests
+
+✔ improves GPU utilization
+✔ reduces per-request latency
+
+Used in:
+
+* vLLM
+* TensorRT-LLM
+
+---
+
+## b) Paged attention / KV cache management
+
+Efficient memory allocation for KV cache:
+
+* avoids fragmentation
+* improves throughput under load
+
+---
+
+## c) Parallelism strategies
+
+### Tensor parallelism
+
+Split model across GPUs
+
+### Pipeline parallelism
+
+Split layers across GPUs
+
+✔ enables large models with lower latency at scale
+
+---
+
+## d) Caching at higher levels
+
+* response caching
+* embedding caching
+* prefix KV caching
+
+If repeated queries:
+✔ return instantly
+
+---
+
+# 5. RAG & Prompt Optimization
+
+## a) Reduce prompt size
+
+Prompt tokens directly affect latency:
+
+* remove redundant instructions
+* compress system prompts
+* avoid long chat history
+
+---
+
+## b) Better retrieval (RAG)
+
+Instead of:
+
+* feeding large documents
+
+Use:
+
+* top-k retrieval
+* reranking
+* chunk compression
+
+✔ reduces context length → faster inference
+
+---
+
+## c) Structured outputs
+
+Avoid free-form generation when possible:
+
+* JSON schema
+* short answers
+* function calling
+
+---
+
+# 6. Hardware-Level Optimizations
+
+## a) Use better GPUs
+
+* H100 > A100 > L4 > T4
+
+---
+
+## b) Increase memory bandwidth utilization
+
+LLMs are often **memory-bound**, not compute-bound.
+
+---
+
+## c) Kernel fusion
+
+Combine ops:
+
+* attention + softmax + matmul fused
+
+---
+
+# 7. API / Product-Level Optimizations
+
+## a) Streaming responses
+
+* start returning tokens immediately
+* reduces perceived latency
+
+---
+
+## b) Request routing
+
+Send request to:
+
+* smallest capable model
+* least loaded GPU
+
+---
+
+## c) Adaptive model selection
+
+Example:
+
+* simple query → 3B model
+* complex reasoning → 70B model
+
+---
+
+# 8. Key Latency Formula (Senior View)
+
+Total latency:
+
+T = T_{prefill} + T_{decode}
+
+Where:
+
+* **prefill** = processing prompt
+* **decode** = token-by-token generation
+
+Most optimizations target decode phase.
+
+---
+
+# 9. Most Impactful Levers (Interview Answer)
+
+If you want a strong senior answer, prioritize:
+
+1. KV caching (mandatory)
+2. Speculative decoding
+3. Quantization (INT8/4)
+4. Continuous batching
+5. FlashAttention
+6. Reducing context length (RAG over long prompts)
+7. Smaller or distilled models
+
+---
+
+# 10. Agentic AI Perspective
+
+In agent systems, latency comes from:
+
+* multiple LLM calls
+* tool calls
+* memory retrieval
+
+So you also add:
+
+* parallel tool execution
+* caching tool outputs
+* reducing reasoning steps
+* planning compression
+
+---
+
+# Final Senior-Level Summary
+
+A strong interview answer:
+
+> In production LLM systems, inference latency is reduced across multiple layers: model compression (quantization, distillation, MoE), decoding optimizations (KV caching, speculative decoding), attention optimizations (FlashAttention, context reduction), and serving optimizations (continuous batching, caching, and parallelism). The biggest real-world gains typically come from reducing autoregressive decode cost and improving GPU utilization rather than only optimizing the model architecture.
+
+---
+
+If you want, I can also give you a **real production ChatGPT-style latency architecture diagram + request flow**, which is a very common senior AI system design interview question.

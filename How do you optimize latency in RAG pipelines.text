@@ -1,0 +1,356 @@
+Optimizing latency in RAG is a **systems problem across the entire pipeline**, not just “make the model faster.”
+
+A senior framing is:
+
+> RAG latency = retrieval latency + reranking latency + LLM generation latency + orchestration overhead
+
+So you optimize each stage independently and then holistically.
+
+---
+
+# 1. Break down RAG latency (first principle)
+
+T_{RAG} = T_{retrieval} + T_{rerank} + T_{LLM} + T_{network}
+
+Each term has different optimization strategies.
+
+---
+
+# 2. Optimize Retrieval Latency (Vector DB layer)
+
+## 2.1 Use ANN (already required)
+
+Exact search is impossible at scale.
+
+Use:
+
+* HNSW
+* IVF
+* PQ
+
+---
+
+## 2.2 Tune ANN parameters
+
+For HNSW:
+
+* lower `efSearch` → faster, slightly less recall
+* tune `M` for memory vs speed
+
+\text{efSearch} \downarrow \Rightarrow \text{latency} \downarrow
+
+---
+
+## 2.3 Reduce search space with metadata filtering
+
+* domain filters
+* time filters
+* tenant isolation
+
+This reduces candidate vectors dramatically.
+
+---
+
+## 2.4 Reduce vector DB I/O
+
+* keep indexes in memory
+* shard by domain/tenant
+* colocate compute + index
+
+---
+
+## 2.5 Use caching (very high impact)
+
+### Query cache
+
+* cache top-k results for repeated queries
+
+### Embedding cache
+
+* avoid recomputing query embeddings
+
+---
+
+# 3. Optimize Embedding Latency
+
+## 3.1 Use smaller embedding models
+
+Trade-off:
+
+* smaller model = faster, lower quality
+
+---
+
+## 3.2 Batch embedding requests
+
+* improves GPU throughput
+
+---
+
+## 3.3 Cache frequent embeddings
+
+Especially for:
+
+* repeated queries
+* templates
+* system prompts
+
+---
+
+## 3.4 Use local embedding models
+
+Avoid network overhead (critical for low latency systems)
+
+---
+
+# 4. Optimize Reranking Latency
+
+Reranking is often the **biggest hidden bottleneck**.
+
+---
+
+## 4.1 Reduce candidate set size
+
+Instead of reranking 100 docs:
+
+* retrieve top 20–50 only
+
+---
+
+## 4.2 Use lightweight rerankers
+
+Options:
+
+* MiniLM cross-encoder
+* distilled reranker models
+
+---
+
+## 4.3 Batch reranking inference
+
+Process multiple query-doc pairs together.
+
+---
+
+## 4.4 Skip reranking for low-risk queries
+
+Use routing:
+
+* simple queries → skip reranker
+* complex queries → rerank
+
+---
+
+# 5. Optimize LLM latency (largest cost)
+
+## 5.1 Reduce context size
+
+* better chunking
+* better reranking
+* deduplication
+
+Less tokens → faster generation
+
+---
+
+## 5.2 Use KV caching
+
+T_{generation} \propto \text{new tokens, not full context}
+
+KV cache avoids recomputing attention over past tokens.
+
+---
+
+## 5.3 Use smaller models for simple queries
+
+Route:
+
+* small model → fast responses
+* large model → complex reasoning
+
+---
+
+## 5.4 Streaming responses
+
+Perceived latency ↓ significantly
+
+---
+
+## 5.5 Speculative decoding (advanced)
+
+* small model drafts tokens
+* large model verifies
+
+---
+
+# 6. Optimize network + orchestration
+
+## 6.1 Co-locate services
+
+* vector DB + embedding service + LLM gateway in same region
+
+---
+
+## 6.2 Reduce hops
+
+Bad:
+
+```text
+API → service A → service B → DB → LLM
+```
+
+Good:
+
+```text
+API → unified RAG service
+```
+
+---
+
+## 6.3 Use async parallelization
+
+Parallelize:
+
+* embedding
+* retrieval
+* metadata fetch
+
+---
+
+# 7. Use caching aggressively (biggest win in production)
+
+## Types of caching:
+
+### (1) Query cache
+
+Same question → reuse full result
+
+### (2) Retrieval cache
+
+Same embedding → reuse top-k results
+
+### (3) Chunk cache
+
+Precomputed retrieval results for hot docs
+
+### (4) LLM response cache
+
+Final answer caching
+
+---
+
+# 8. Reduce context processing cost
+
+## 8.1 Context compression
+
+* summarization of retrieved chunks
+* extract only relevant sentences
+
+---
+
+## 8.2 Deduplication
+
+Remove:
+
+* duplicate chunks
+* overlapping context
+
+---
+
+# 9. Architecture-level optimization
+
+## Fast RAG pipeline:
+
+```text id="r1"
+User Query
+   ↓
+Embedding (cached + fast model)
+   ↓
+Metadata filter
+   ↓
+ANN retrieval (HNSW tuned)
+   ↓
+Top-20 candidates
+   ↓
+Reranker (optional routing)
+   ↓
+Context compression
+   ↓
+LLM (KV cache + streaming)
+   ↓
+Response
+```
+
+---
+
+# 10. Advanced latency optimization techniques
+
+## 10.1 Early-exit routing
+
+If confidence is high:
+
+* skip reranking
+* skip LLM (return cached answer)
+
+---
+
+## 10.2 Multi-tier retrieval
+
+* Tier 1: fast index
+* Tier 2: high precision index
+
+---
+
+## 10.3 Distill retrieval models
+
+Use smaller models for reranking + embedding
+
+---
+
+## 10.4 Edge caching (CDN-style RAG)
+
+Cache:
+
+* embeddings
+* responses
+* retrieval results at edge nodes
+
+---
+
+# 11. Common bottlenecks in real systems
+
+❌ reranking too large
+❌ no caching layer
+❌ overlarge context windows
+❌ slow embedding API calls
+❌ unoptimized HNSW settings
+❌ sequential pipeline (no parallelism)
+
+---
+
+# 12. Senior-level interview answer
+
+RAG latency is optimized by addressing each stage of the pipeline: embedding generation, retrieval, reranking, and LLM inference. Retrieval latency is reduced using ANN indexing (such as HNSW) with tuned parameters and metadata filtering. Reranking cost is controlled by reducing candidate set size and using lightweight cross-encoders. LLM latency is optimized via context reduction, KV caching, model routing, and speculative decoding. Additionally, caching layers for embeddings, retrieval results, and responses play a major role in minimizing end-to-end latency in production systems.
+::`
+
+---
+
+# 13. Final intuition
+
+Think of RAG latency like a pipeline:
+
+| Stage     | Optimization             |
+| --------- | ------------------------ |
+| Embedding | caching + batching       |
+| Retrieval | ANN + filtering          |
+| Reranking | smaller candidate set    |
+| LLM       | KV cache + smaller model |
+| System    | caching + parallelism    |
+
+---
+
+If you want, I can go deeper into:
+
+* **real production architecture (ChatGPT-style low latency RAG design)**
+* or **how to hit <200ms retrieval latency at 100M+ vectors**
+* or **how caching alone can give 10× latency reduction in RAG systems (very interview-relevant)**

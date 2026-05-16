@@ -1,0 +1,334 @@
+Designing **persistent memory for agents** is a systems problem: you’re building something closer to a **personal knowledge system + retrieval engine + write policy**, not just a database.
+
+A senior framing is:
+
+> Persistent memory = (what to store) + (how to store it) + (how to retrieve it) + (how to keep it clean over time)
+
+---
+
+# 1. What is persistent memory?
+
+Persistent memory is an external system that allows an agent to:
+
+* remember across sessions
+* personalize behavior
+* accumulate knowledge over time
+* retrieve relevant past experiences
+
+Unlike short-term memory (context window), it is:
+
+* durable
+* structured
+* queryable
+
+---
+
+# 2. High-level architecture
+
+```text id="p1"
+User Interaction
+      ↓
+Memory Write Filter (what to store?)
+      ↓
+Memory Storage Layer
+  ┌───────────────┬───────────────┐
+  ↓               ↓               ↓
+Vector DB     Key-Value DB   Event Log
+  ↓               ↓               ↓
+Memory Retrieval Engine (ranking + filtering)
+      ↓
+Context Injection into LLM
+      ↓
+Agent Response
+```
+
+---
+
+# 3. Types of persistent memory (you must design all 3)
+
+## 3.1 Semantic memory (facts & knowledge)
+
+Examples:
+
+* “User works on RAG systems”
+* “Project uses FAISS”
+
+Stored as embeddings + metadata.
+
+---
+
+## 3.2 Episodic memory (events/history)
+
+Examples:
+
+* “User asked about tool hallucination on May 16”
+* “User debugged latency issue”
+
+Stored as logs or vectors.
+
+---
+
+## 3.3 Procedural memory (behavior/preferences)
+
+Examples:
+
+* “Always respond concisely”
+* “Prefer Python code examples”
+
+Stored as structured key-value.
+
+---
+
+# 4. Memory write pipeline (CRITICAL)
+
+Not everything should be stored.
+
+## Step 1: Memory candidate generation
+
+LLM extracts:
+
+```json id="m1"
+{
+  "type": "preference",
+  "content": "User prefers concise explanations",
+  "importance": 0.9
+}
+```
+
+---
+
+## Step 2: Memory filter (gatekeeper)
+
+Decides:
+
+* store / reject / summarize
+
+Rules:
+
+* store only stable or reusable info
+* ignore one-off queries
+
+---
+
+## Step 3: Memory enrichment
+
+Add metadata:
+
+* timestamp
+* source
+* confidence
+* importance score
+
+---
+
+## Step 4: Storage
+
+Stored in:
+
+* vector DB (semantic)
+* KV store (facts)
+* log store (history)
+
+---
+
+# 5. Memory representation design
+
+## 5.1 Vector memory
+
+m_i = f(\text{experience}_i) \in \mathbb{R}^d
+
+Used for semantic recall.
+
+---
+
+## 5.2 Structured memory
+
+```json id="s1"
+{
+  "key": "preferred_language",
+  "value": "Python",
+  "type": "preference",
+  "timestamp": "2026-05-16"
+}
+```
+
+---
+
+## 5.3 Episodic memory
+
+Append-only:
+
+```text id="e1"
+2026-05-16: Discussed RAG optimization
+2026-05-16: Explored agent tool routing
+```
+
+---
+
+# 6. Memory retrieval pipeline (VERY IMPORTANT)
+
+## Step 1: Query embedding
+
+## Step 2: Similarity search
+
+## Step 3: Metadata filtering
+
+## Step 4: Ranking
+
+\mathrm{score} = \alpha \cdot \mathrm{similarity} + \beta \cdot \mathrm{recency} + \gamma \cdot \mathrm{importance}
+
+---
+
+## Step 5: Top-k selection
+
+Inject only relevant memories into context.
+
+---
+
+# 7. Memory injection strategy
+
+## (A) Hard injection
+
+Directly add to prompt:
+
+```text id="i1"
+User preferences:
+- concise answers
+- prefers Python
+```
+
+---
+
+## (B) Soft retrieval (recommended)
+
+Only inject top-k relevant memories per query.
+
+---
+
+## (C) Tool-based memory access
+
+Agent calls:
+
+* `retrieve_memory(query)`
+* `store_memory(fact)`
+
+---
+
+# 8. Memory consolidation (VERY IMPORTANT for scale)
+
+Without this, memory becomes noisy.
+
+## Techniques:
+
+### 8.1 Summarization
+
+Convert many logs into one fact:
+
+> “User works on RAG systems and agentic AI.”
+
+---
+
+### 8.2 Deduplication
+
+Merge similar memories.
+
+---
+
+### 8.3 Clustering
+
+Group related memories before storage.
+
+---
+
+# 9. Memory decay (prevents stale behavior)
+
+Old memories should lose weight:
+
+w_t = w_0 e^{-\lambda t}
+
+---
+
+# 10. Conflict resolution (advanced problem)
+
+Example:
+
+* Memory A: user prefers detailed answers
+* Memory B: user prefers concise answers
+
+Resolution strategies:
+
+* most recent wins
+* weighted confidence
+* context-dependent selection
+
+---
+
+# 11. Production architecture
+
+```text id="p2"
+User Query
+   ↓
+Memory Retrieval Service
+   ├── Vector DB (semantic memory)
+   ├── KV Store (facts/preferences)
+   ├── Event Log (history)
+   ↓
+Ranking + Filtering Engine
+   ↓
+Context Builder
+   ↓
+LLM Agent
+   ↓
+Memory Writer (post-processing)
+```
+
+---
+
+# 12. Tools used in real systems
+
+* Pinecone → vector-based persistent memory
+* Weaviate → hybrid memory + filtering
+* Redis → fast KV memory
+* PostgreSQL → structured memory
+* Kafka → event memory pipeline
+
+---
+
+# 13. Common mistakes
+
+❌ storing everything (memory pollution)
+❌ no retrieval ranking
+❌ no decay mechanism
+❌ no write filter
+❌ injecting irrelevant memories
+❌ mixing episodic + semantic memory
+
+---
+
+# 14. Senior-level interview answer
+
+Persistent memory in agentic systems is designed as a multi-layer architecture consisting of semantic memory (vector databases), structured key-value memory, and episodic event logs. A memory write filter determines what information is worth storing based on importance, stability, and reuse potential.
+
+At inference time, a memory retrieval engine performs similarity search combined with metadata filtering and ranking based on relevance, recency, and importance before injecting relevant memories into the model context. Additional mechanisms such as memory consolidation, deduplication, and decay functions are used to ensure scalability and prevent noise accumulation over time.
+::`
+
+---
+
+# 15. Final intuition
+
+Think of persistent memory like:
+
+| Layer             | Analogy        |
+| ----------------- | -------------- |
+| semantic memory   | knowledge base |
+| episodic memory   | diary          |
+| structured memory | CRM profile    |
+| retrieval system  | librarian      |
+
+---
+
+If you want, I can go deeper into:
+
+* how to design a **ChatGPT-style memory system end-to-end (production architecture)**
+* or how memory + RAG + agents combine in enterprise systems
+* or how to implement **memory ranking + conflict resolution at scale (very senior topic)**

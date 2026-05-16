@@ -1,0 +1,437 @@
+# What Is KV Caching? — Senior AI Engineer Explanation
+
+KV caching (Key-Value caching) is an inference optimization used in transformer-based LLMs to:
+
+> **avoid recomputing attention for previously generated tokens during autoregressive decoding.**
+
+It is one of the most important optimizations in modern LLM serving systems.
+
+Without KV cache:
+
+* inference would become extremely slow
+* token generation cost grows unnecessarily
+
+---
+
+# Why KV Cache Exists
+
+LLMs generate text one token at a time.
+
+Example:
+
+```text id="jlwm71"
+Input:
+"The sky is"
+```
+
+Model predicts:
+
+```text id="9a0t4n"
+blue
+```
+
+Now next step becomes:
+
+```text id="jlwm72"
+"The sky is blue"
+```
+
+Then predict next token again.
+
+This repeats autoregressively.
+
+---
+
+# The Problem Without KV Cache
+
+In transformers:
+
+Every generation step computes attention over all previous tokens.
+
+Attention equation:
+
+\mathrm{Attention}(Q,K,V)=\mathrm{softmax}\left(\frac{QK^T}{\sqrt{d_k}}\right)V
+
+At token step (t):
+
+* Query = current token
+* Keys/Values = all previous tokens
+
+Without caching:
+
+* K and V for old tokens are recomputed every step.
+
+This is wasteful.
+
+---
+
+# Example Without KV Cache
+
+Suppose generating:
+
+```text id="jlwm73"
+"The sky is blue today"
+```
+
+At each step:
+
+| Step | Tokens Recomputed     |
+| ---- | --------------------- |
+| 1    | The                   |
+| 2    | The sky               |
+| 3    | The sky is            |
+| 4    | The sky is blue       |
+| 5    | The sky is blue today |
+
+Earlier computations repeat again and again.
+
+Huge inefficiency.
+
+---
+
+# Core Insight of KV Cache
+
+For previous tokens:
+
+```text id="jlwm74"
+K and V do not change
+```
+
+because:
+
+* model weights fixed during inference
+* previous token representations fixed
+
+So instead of recomputing:
+
+* store K/V tensors once
+* reuse them for future decoding steps
+
+---
+
+# What Gets Cached?
+
+For every transformer layer:
+
+* Keys
+* Values
+
+NOT queries.
+
+Why?
+
+Because:
+
+* Query depends on current token only
+* Keys/Values from history remain constant
+
+---
+
+# Internal Flow with KV Cache
+
+---
+
+## Initial Prompt
+
+Input:
+
+```text id="jlwm75"
+"The sky is"
+```
+
+Compute:
+
+* Q
+* K
+* V
+
+Store:
+
+* K cache
+* V cache
+
+---
+
+## Next Token Generation
+
+New token:
+
+```text id="jlwm76"
+blue
+```
+
+Now:
+
+* compute Q/K/V only for "blue"
+* append new K/V to cache
+* reuse previous cached K/V
+
+No recomputation of old tokens.
+
+---
+
+# Complexity Reduction
+
+Without KV cache:
+
+* repeated attention computation
+* inefficient decoding
+
+With KV cache:
+
+* only incremental computation
+
+Massive speedup.
+
+---
+
+# Tensor Shapes
+
+Suppose:
+
+```text id="jlwm77"
+batch_size = 1
+seq_len = 4096
+heads = 32
+head_dim = 128
+layers = 80
+```
+
+KV cache roughly stores:
+
+```text id="jlwm78"
+[layer][token][head][dimension]
+```
+
+Large production systems can consume many GBs of VRAM.
+
+---
+
+# Why KV Cache Is Critical
+
+Without KV cache:
+
+* ChatGPT-style streaming would be impractical
+
+KV caching enables:
+
+* real-time generation
+* long conversations
+* efficient streaming
+* scalable inference
+
+---
+
+# Important Production Insight
+
+During inference:
+
+> Compute bottleneck shifts from FLOPs to memory bandwidth.
+
+Why?
+
+Because:
+
+* constantly reading massive KV cache tensors from GPU memory becomes expensive.
+
+Modern inference optimization heavily focuses on:
+
+* KV cache efficiency
+* memory locality
+* bandwidth reduction
+
+---
+
+# KV Cache Growth Problem
+
+KV cache grows linearly with context length.
+
+Memory complexity:
+
+O(n)
+
+where:
+
+* (n) = sequence length
+
+Large contexts create massive cache memory usage.
+
+---
+
+# Example
+
+Long conversation:
+
+```text id="jlwm79"
+128K context
+80 layers
+many heads
+```
+
+KV cache may consume:
+
+* tens of GBs
+* even more in large models
+
+This becomes a major production bottleneck.
+
+---
+
+# Why Long Context Is Expensive
+
+Even though KV caching reduces recomputation:
+
+* cache itself becomes huge
+
+This causes:
+
+* VRAM pressure
+* memory fragmentation
+* slower throughput
+* GPU scaling challenges
+
+---
+
+# Paged Attention
+
+Modern serving systems optimize KV cache using:
+
+## Paged Attention
+
+Instead of contiguous allocation:
+
+* use virtual-memory-like paging
+
+Benefits:
+
+* better memory utilization
+* dynamic batching
+* reduced fragmentation
+
+Used heavily in:
+
+* vLLM
+
+---
+
+# Continuous Batching
+
+Production servers batch:
+
+* multiple users
+* different sequence lengths
+
+KV cache management becomes extremely complex.
+
+Serving systems optimize:
+
+* token scheduling
+* cache reuse
+* batch merging
+
+---
+
+# Prefix Caching
+
+If many requests share same prompt prefix:
+
+Example:
+
+```text id="jlwm80"
+"You are a helpful assistant..."
+```
+
+system can reuse existing KV cache.
+
+Huge latency savings.
+
+Very important in:
+
+* enterprise copilots
+* multi-user systems
+* agent frameworks
+
+---
+
+# KV Cache in Agentic AI
+
+Agent systems accumulate:
+
+* conversation history
+* tool outputs
+* reasoning traces
+
+KV cache grows rapidly.
+
+Production agents therefore use:
+
+* summarization
+* memory compression
+* retrieval-based memory
+* context pruning
+
+---
+
+# Flash Attention vs KV Cache
+
+These are different optimizations.
+
+---
+
+## FlashAttention
+
+Optimizes:
+
+* attention computation kernels
+
+---
+
+## KV Cache
+
+Optimizes:
+
+* autoregressive decoding reuse
+
+Both are critical in production LLM inference.
+
+---
+
+# Important Interview Insight
+
+Strong senior-level answer:
+
+KV caching stores previously computed key and value tensors during autoregressive decoding so the model does not recompute attention for past tokens at every generation step.
+
+This significantly reduces inference latency and enables real-time LLM serving.
+
+However, KV cache memory grows linearly with sequence length, making long-context inference a major systems engineering challenge in production AI infrastructure.
+::}
+
+---
+
+# Real Production Concerns
+
+Senior AI engineers should understand:
+
+* KV cache offloading
+* GPU memory pressure
+* cache eviction
+* continuous batching
+* paged attention
+* tensor parallelism
+* multi-user inference scheduling
+
+These dominate large-scale LLM serving performance.
+
+---
+
+# Final Intuition
+
+Think of KV cache like:
+
+| Human Analogy                     | Transformer Equivalent |
+| --------------------------------- | ---------------------- |
+| remembering previous conversation | cached keys/values     |
+
+Instead of rereading the entire conversation every sentence,
+the model stores compressed memory representations and reuses them efficiently during generation.

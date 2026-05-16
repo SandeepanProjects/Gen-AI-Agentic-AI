@@ -1,0 +1,294 @@
+Stale embeddings are a **very real production problem in RAG systems**—and a classic “senior engineer” topic.
+
+> Stale embeddings = when your document changes, but its stored vector in the vector DB is still based on old content.
+
+This causes **wrong retrieval, hallucinations, and broken grounding**.
+
+---
+
+# 1. Why embeddings become stale
+
+Embeddings are computed over a snapshot of text:
+
+x = f(\text{document at time } t_0)
+
+If document updates:
+
+x_{stale} \neq f(\text{document at time } t_1)
+
+So vector DB still returns **outdated meaning**.
+
+---
+
+# 2. When stale embeddings happen in real systems
+
+Common cases:
+
+* Wikipedia-like knowledge updates
+* product documentation changes
+* financial/legal updates
+* user-edited knowledge bases
+* incremental ingestion pipelines
+
+---
+
+# 3. Core strategies to handle stale embeddings
+
+---
+
+# 3.1 Versioning (MOST IMPORTANT)
+
+Every document/chunk has a version:
+
+```json id="v1"
+{
+  "doc_id": "policy_123",
+  "version": 3,
+  "chunk_id": "c12",
+  "embedding": [...],
+  "timestamp": "2026-05-01"
+}
+```
+
+### Rule:
+
+> Only latest version is valid for retrieval
+
+---
+
+## How it works:
+
+* new document version → re-embed
+* mark old embeddings as inactive or delete
+
+---
+
+# 3.2 Soft delete + reindexing
+
+Instead of deleting immediately:
+
+* mark old embeddings as `inactive`
+* background job rebuilds index
+
+---
+
+## Why needed:
+
+* avoids downtime
+* supports large-scale updates
+
+---
+
+# 3.3 Incremental re-embedding (delta updates)
+
+Instead of re-embedding full corpus:
+
+Only update:
+
+* changed chunks
+* new sections
+
+---
+
+### Change detection methods:
+
+* hash-based diff
+* text similarity drift
+* edit tracking in CMS
+
+---
+
+# 3.4 Timestamp-based filtering
+
+Add metadata:
+
+```json id="v2"
+{
+  "timestamp": "2026-05-10"
+}
+```
+
+Query time filter:
+
+> only retrieve embeddings newer than X
+
+---
+
+# 3.5 Dual-index strategy (very production-grade)
+
+Maintain two indexes:
+
+* **active index** (latest embeddings)
+* **shadow index** (new embeddings being built)
+
+Then switch atomically.
+
+---
+
+# 3.6 Re-embedding pipeline (batch job)
+
+Typical pipeline:
+
+```text id="p1"
+Detect changes
+   ↓
+Chunk updated docs
+   ↓
+Generate embeddings
+   ↓
+Upsert into vector DB
+   ↓
+Delete old vectors
+```
+
+---
+
+# 4. Hybrid consistency approach (advanced)
+
+Some systems store both:
+
+* old embedding (for stability)
+* new embedding (for freshness)
+
+Then merge results with weighting:
+
+\mathrm{score} = \alpha \cdot \text{new} + (1-\alpha) \cdot \text{old}
+
+---
+
+# 5. Event-driven embedding updates (real production)
+
+Instead of batch jobs:
+
+## Use event streaming:
+
+* Kafka / PubSub / SQS
+
+Flow:
+
+```text id="p2"
+Document update event
+   ↓
+Chunk diff service
+   ↓
+Embedding service
+   ↓
+Vector DB upsert
+```
+
+---
+
+# 6. Cache invalidation (often missed)
+
+If you cache:
+
+* retrieval results
+* embeddings
+* query results
+
+You must invalidate cache when:
+
+* document changes
+* embedding updates
+
+Otherwise:
+
+> stale cache ≠ stale embeddings → compounding errors
+
+---
+
+# 7. Reindexing strategies
+
+## (A) Full reindex
+
+* simplest
+* expensive
+* used for small datasets
+
+---
+
+## (B) Partial reindex
+
+* only updated documents
+* common in production
+
+---
+
+## (C) Rolling reindex (large systems)
+
+* reindex shard-by-shard
+* no downtime
+
+---
+
+# 8. Vector DB features for staleness handling
+
+Modern vector DBs help:
+
+* Pinecone → upserts + metadata filtering
+* Weaviate → auto schema + updates
+* Milvus → versioned collections
+
+---
+
+# 9. Common failure modes
+
+## 1. Old embeddings still returned
+
+→ outdated answers
+
+## 2. Mixed versions in retrieval
+
+→ contradictory context
+
+## 3. Partial updates only
+
+→ inconsistent chunk set
+
+## 4. No version control
+
+→ impossible to debug retrieval errors
+
+---
+
+# 10. Best practices (production checklist)
+
+✔ Always version documents
+✔ Track chunk-level hashes
+✔ Use incremental embedding updates
+✔ Maintain reindex pipeline
+✔ Use metadata filtering (timestamp/version)
+✔ Add monitoring for drift
+✔ Automate cache invalidation
+
+---
+
+# 11. Senior-level interview answer
+
+Stale embeddings occur when the underlying document content changes but the stored vector representations in the database are not updated, leading to outdated or incorrect retrieval results.
+
+In production RAG systems, this is handled using strategies such as document and chunk versioning, incremental re-embedding pipelines, and event-driven updates. Many systems also use metadata-based filtering (timestamps or version IDs) to ensure only the latest embeddings are retrieved.
+
+For large-scale systems, rolling or partial reindexing strategies are used to ensure consistency without downtime, often supported by vector databases that support upserts and atomic index updates.
+::`
+
+---
+
+# 12. Final intuition
+
+Think of stale embeddings like:
+
+| Concept         | Analogy                  |
+| --------------- | ------------------------ |
+| stale embedding | outdated Google map data |
+| re-embedding    | updating map database    |
+| versioning      | map version control      |
+| reindexing      | rebuilding search index  |
+
+---
+
+If you want next-level depth, I can explain:
+
+* how large systems do **zero-downtime vector index migration**
+* or how to design a **CDC (change data capture) pipeline for RAG embeddings**
+* or how ChatGPT-style systems keep embeddings fresh at massive scale (very senior architecture topic)

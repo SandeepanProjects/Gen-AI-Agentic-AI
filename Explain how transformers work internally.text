@@ -1,0 +1,706 @@
+# How Transformers Work Internally — Senior AI Engineer Level
+
+Transformers are sequence modeling architectures built around one core idea:
+
+> **Learn relationships between tokens using attention instead of recurrence.**
+
+Unlike RNNs/LSTMs, transformers process tokens **in parallel**, which makes them highly scalable for modern GPU/TPU infrastructure.
+
+The original architecture came from the paper
+Attention Is All You Need by Ashish Vaswani and team at Google.
+
+---
+
+# High-Level Pipeline
+
+A transformer internally looks like this:
+
+```text
+Input Text
+   ↓
+Tokenization
+   ↓
+Embeddings + Positional Encoding
+   ↓
+Stack of Transformer Blocks
+    ├── Multi-Head Self Attention
+    ├── Add & LayerNorm
+    ├── Feed Forward Network
+    └── Add & LayerNorm
+   ↓
+Final Hidden States
+   ↓
+Linear Projection to Vocabulary
+   ↓
+Softmax
+   ↓
+Next Token Prediction
+```
+
+---
+
+# Step 1 — Tokenization
+
+LLMs do not understand words directly.
+
+Text is broken into **tokens**.
+
+Example:
+
+```text
+"Transformers are powerful"
+```
+
+might become:
+
+```text
+["Transform", "ers", " are", " powerful"]
+```
+
+Modern LLMs use:
+
+* BPE (Byte Pair Encoding)
+* SentencePiece
+* WordPiece
+* tiktoken-like tokenizers
+
+Each token maps to an integer ID.
+
+Example:
+
+```text
+"Transform" → 15321
+"ers"       → 712
+```
+
+---
+
+# Step 2 — Embeddings
+
+Each token ID becomes a dense vector.
+
+If embedding dimension is 4096:
+
+```text
+15321 → [0.12, -0.44, 0.91, ...]
+```
+
+This is essentially a lookup table:
+
+```python
+embedding[token_id]
+```
+
+Embedding matrix:
+
+E \in \mathbb{R}^{V \times d}
+
+Where:
+
+* (V) = vocabulary size
+* (d) = embedding dimension
+
+Example:
+
+```text
+Vocabulary: 100K
+Embedding dim: 4096
+```
+
+Embedding table size:
+
+```text
+100000 × 4096
+```
+
+This alone can consume GBs of memory.
+
+---
+
+# Step 3 — Positional Encoding
+
+Attention itself is permutation invariant.
+
+Without positions:
+
+```text
+"dog bites man"
+```
+
+and
+
+```text
+"man bites dog"
+```
+
+look identical.
+
+So transformers inject positional information.
+
+Original paper used sinusoidal encoding:
+
+PE_{(pos,2i)} = \sin\left(\frac{pos}{10000^{2i/d}}\right)
+
+Modern models often use:
+
+* Rotary embeddings (RoPE)
+* ALiBi
+* Learned positional embeddings
+
+RoPE is common in modern LLMs like:
+
+* OpenAI GPT models
+* Meta Llama
+* Anthropic Claude
+
+---
+
+# Step 4 — Self Attention (Core Innovation)
+
+This is the heart of transformers.
+
+Every token can "look at" every other token.
+
+Example:
+
+```text
+"The animal didn't cross the street because it was tired"
+```
+
+The model learns:
+
+```text
+"it" → refers to "animal"
+```
+
+through attention weights.
+
+---
+
+# Q, K, V — Query, Key, Value
+
+For every token embedding (x):
+
+We create:
+
+```text
+Q = Query
+K = Key
+V = Value
+```
+
+using learned matrices.
+
+Q=XW_Q,\quad K=XW_K,\quad V=XW_V
+
+Where:
+
+* (X) = input embeddings
+* (W_Q, W_K, W_V) are trainable weights
+
+---
+
+# Attention Score Computation
+
+Similarity between tokens:
+
+```text
+Query · Key
+```
+
+Full attention equation:
+
+\mathrm{Attention}(Q,K,V)=\mathrm{softmax}\left(\frac{QK^T}{\sqrt{d_k}}\right)V
+
+This equation is the most important equation in transformers.
+
+---
+
+# Intuition
+
+Suppose token:
+
+```text
+"it"
+```
+
+needs context.
+
+Its Query compares against all Keys.
+
+Large score = relevant token.
+
+Softmax converts scores into probabilities.
+
+Example:
+
+```text
+animal → 0.82
+street → 0.05
+cross  → 0.03
+```
+
+Then weighted averaging happens over Values.
+
+---
+
+# Why Divide by √dk?
+
+Without scaling:
+
+```text
+QKᵀ
+```
+
+becomes numerically huge for large dimensions.
+
+Softmax saturates:
+
+```text
+[1000, 999, 998]
+```
+
+becomes:
+
+```text
+[1,0,0]
+```
+
+which hurts gradients.
+
+Scaling stabilizes training.
+
+---
+
+# Causal Masking
+
+LLMs are autoregressive.
+
+Future tokens must be hidden.
+
+Example:
+
+```text
+"I love deep learning"
+```
+
+When predicting:
+
+```text
+"deep"
+```
+
+model cannot see:
+
+```text
+"learning"
+```
+
+Internally:
+
+```text
+Upper triangular mask = -∞
+```
+
+before softmax.
+
+This creates causal attention.
+
+---
+
+# Multi-Head Attention
+
+Instead of one attention mechanism:
+
+Use many heads in parallel.
+
+Example:
+
+```text
+32 heads
+```
+
+Each head learns different relationships:
+
+* syntax
+* grammar
+* long-term context
+* code structure
+* semantic meaning
+
+Equation:
+
+\mathrm{MultiHead}(Q,K,V)=\mathrm{Concat}(head_1,\dots,head_h)W_O
+
+---
+
+# Step 5 — Feed Forward Network (FFN)
+
+After attention:
+
+Each token independently passes through MLP layers.
+
+Typically:
+
+```text
+Linear → GELU/SwiGLU → Linear
+```
+
+Equation:
+
+\mathrm{FFN}(x)=W_2\sigma(W_1x+b_1)+b_2
+
+Purpose:
+
+* nonlinear reasoning
+* feature transformation
+* internal knowledge storage
+
+A lot of factual memory lives here.
+
+---
+
+# Step 6 — Residual Connections + LayerNorm
+
+Transformers are deep:
+
+```text
+48
+96
+120+
+layers
+```
+
+Without stabilization → training collapses.
+
+Residual:
+
+```text
+x + attention(x)
+```
+
+helps gradient flow.
+
+LayerNorm stabilizes activations.
+
+---
+
+# Step 7 — Stacking Layers
+
+A transformer is many repeated blocks.
+
+Example:
+
+| Model       | Layers      |
+| ----------- | ----------- |
+| GPT-2 Small | 12          |
+| GPT-3       | 96          |
+| GPT-4 class | much deeper |
+| Llama 70B   | 80          |
+
+Earlier layers:
+
+* syntax
+* token patterns
+
+Middle layers:
+
+* semantics
+* relationships
+
+Later layers:
+
+* reasoning
+* generation planning
+
+---
+
+# Step 8 — Output Projection
+
+Final hidden state:
+
+```text
+[batch, seq_len, hidden_dim]
+```
+
+Projected to vocabulary logits.
+
+Equation:
+
+logits = hW^T
+
+Then:
+
+```text
+softmax(logits)
+```
+
+gives next-token probabilities.
+
+Example:
+
+```text
+"The sky is"
+```
+
+Outputs:
+
+```text
+blue → 0.91
+green → 0.03
+red → 0.01
+```
+
+---
+
+# Training Process
+
+Training objective:
+
+Predict next token.
+
+Example:
+
+```text
+Input : "I love deep"
+Target: "learning"
+```
+
+Loss function:
+
+Cross entropy.
+
+\mathcal{L}=-\sum y\log(\hat{y})
+
+Optimization:
+
+* AdamW
+* gradient clipping
+* mixed precision
+* distributed training
+
+---
+
+# Why Transformers Scaled So Well
+
+## Parallelism
+
+RNNs:
+
+```text
+token-by-token
+```
+
+Transformers:
+
+```text
+all tokens simultaneously
+```
+
+Perfect for GPUs.
+
+---
+
+## Emergent Capabilities
+
+As scale increases:
+
+* reasoning emerges
+* in-context learning emerges
+* chain-of-thought emerges
+* tool usage emerges
+
+This is why scaling laws became important.
+
+---
+
+# Internal Memory Mechanism
+
+Transformers store information in multiple places:
+
+| Component       | Stores                   |
+| --------------- | ------------------------ |
+| Attention       | contextual relationships |
+| FFN weights     | factual knowledge        |
+| Residual stream | ongoing computation      |
+| KV cache        | inference-time memory    |
+
+---
+
+# KV Cache in Production
+
+During inference:
+
+Without KV cache:
+
+* recompute all attention every token
+
+With KV cache:
+
+* reuse previous K/V tensors
+
+This massively reduces latency.
+
+Critical for:
+
+* ChatGPT-style systems
+* streaming generation
+* long conversations
+
+---
+
+# Complexity Problem
+
+Attention complexity:
+
+O(n^2)
+
+If sequence length doubles:
+
+* memory quadruples
+* compute quadruples
+
+This is why long-context inference is expensive.
+
+---
+
+# Modern Optimizations
+
+Senior-level understanding should include:
+
+## Flash Attention
+
+Optimized GPU kernel:
+
+* reduces HBM memory reads
+* faster attention
+* memory efficient
+
+Used widely in modern LLM stacks.
+
+---
+
+## Mixture of Experts (MoE)
+
+Instead of activating all parameters:
+
+* activate subset of experts
+
+Example:
+
+* 8 experts
+* only 2 active per token
+
+Massive efficiency gains.
+
+Used in:
+
+* Google Switch Transformer
+* Mistral AI Mixtral
+
+---
+
+# Transformer Variants
+
+## Encoder-Only
+
+Examples:
+
+* Google BERT
+
+Good for:
+
+* classification
+* embeddings
+* retrieval
+
+Uses bidirectional attention.
+
+---
+
+## Decoder-Only
+
+Examples:
+
+* GPT family
+* Meta Llama
+
+Good for:
+
+* generation
+* chat
+* code completion
+
+Uses causal masking.
+
+---
+
+## Encoder-Decoder
+
+Examples:
+
+* T5
+* BART
+
+Good for:
+
+* translation
+* summarization
+
+---
+
+# Production Engineering Concerns
+
+Senior AI engineers should also understand:
+
+## Inference Optimization
+
+* tensor parallelism
+* pipeline parallelism
+* quantization (INT8/4-bit)
+* speculative decoding
+* continuous batching
+* paged attention
+
+---
+
+## Serving Stack
+
+Typical production stack:
+
+```text
+Client
+ → API Gateway
+ → Inference Router
+ → Model Server (vLLM/TGI/Triton)
+ → GPU Cluster
+```
+
+Popular serving systems:
+
+* vLLM
+* NVIDIA Triton Inference Server
+* Text Generation Inference
+
+---
+
+# The Most Important Intuition
+
+Transformers work because:
+
+1. Tokens become vectors
+2. Attention dynamically mixes information
+3. Deep layers repeatedly refine representations
+4. Training on internet-scale corpora creates compressed statistical knowledge
+
+At inference time:
+
+The model is repeatedly doing:
+
+```text
+Predict next token
+→ append token
+→ repeat
+```
+
+Everything emerges from this loop.

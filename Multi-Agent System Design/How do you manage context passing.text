@@ -1,0 +1,396 @@
+Context passing is one of the most critical design problems in LLM systems because it directly determines **accuracy, cost, latency, and hallucination rate**.
+
+A senior framing:
+
+> Context passing = “how you move the *right information*, in the *right format*, to the *right agent*, at the *right time*—without blowing up tokens or losing signal.”
+
+---
+
+# 1. Why context passing is hard
+
+If you pass:
+
+* too little context → hallucination
+* too much context → high cost + confusion
+* wrong context → wrong reasoning
+* stale context → inconsistent decisions
+
+So the goal is:
+
+> maximize **information density**, minimize **token waste**
+
+---
+
+# 2. Core strategies for context passing
+
+There are 6 main patterns used in production systems:
+
+---
+
+# 2.1 Full context passing (naive approach)
+
+Send everything to every agent.
+
+```text id="c1"
+Agent gets:
+- full conversation
+- full documents
+- full memory
+```
+
+✔ simple
+❌ expensive
+❌ noisy
+❌ scales poorly
+
+---
+
+# 2.2 Filtered context passing (most common)
+
+Only pass **relevant subset**.
+
+Steps:
+
+* retrieve relevant chunks
+* rank them
+* trim to top-k
+
+```text id="c2"
+Context = top-k retrieved chunks
+```
+
+✔ standard in RAG systems
+✔ cost-efficient
+
+---
+
+# 2.3 Structured context passing (critical for agents)
+
+Instead of raw text, pass structured state:
+
+```json id="s1"
+{
+  "task": "build RAG system",
+  "constraints": ["low latency", "open source only"],
+  "previous_step": "retrieval done",
+  "errors": []
+}
+```
+
+✔ reduces ambiguity
+✔ improves reliability
+
+---
+
+# 2.4 Hierarchical context passing
+
+Compress context at each layer:
+
+```text id="h1"
+Raw docs → summary → meta-summary → agent input
+```
+
+Used in large multi-agent systems.
+
+✔ scales to long context problems
+✔ reduces token usage
+
+---
+
+# 2.5 Windowed / sliding context
+
+Only pass recent or relevant history:
+
+```text id="w1"
+last N steps + key state
+```
+
+Used in:
+
+* chat systems
+* iterative agents
+
+✔ prevents context explosion
+
+---
+
+# 2.6 Memory-based context retrieval
+
+Instead of passing everything:
+
+> agents fetch context on-demand
+
+```text id="m1"
+Agent → queries memory → retrieves relevant facts
+```
+
+This is core to:
+
+* RAG systems
+* vector DB memory
+* MCP-based tools
+
+---
+
+# 3. Context passing in multi-agent systems
+
+---
+
+## 3.1 Orchestrator-based passing (cleanest design)
+
+```text id="o1"
+Orchestrator selects:
+- what context each agent gets
+- format of context
+- ordering of execution
+```
+
+✔ production standard
+✔ fully controlled
+
+---
+
+## 3.2 Shared state passing (blackboard)
+
+```text id="b1"
+Agent reads shared memory snapshot
+Agent writes updates
+```
+
+✔ flexible
+❌ needs version control
+
+---
+
+## 3.3 Message passing
+
+Each agent explicitly passes context:
+
+```json id="mp1"
+{
+  "input": "...",
+  "context": "...from previous agent..."
+}
+```
+
+✔ explicit
+❌ duplication risk
+
+---
+
+# 4. Key design principle
+
+> Never pass raw history blindly — always transform context before passing.
+
+---
+
+# 5. Context compression strategies
+
+---
+
+## 5.1 Summarization
+
+Convert long text → compact representation
+
+```text id="s2"
+10k tokens → 200 token summary
+```
+
+---
+
+## 5.2 Entity extraction
+
+Keep only:
+
+* key facts
+* variables
+* decisions
+
+---
+
+## 5.3 Semantic filtering
+
+Use embeddings to select only relevant context.
+
+---
+
+## 5.4 Schema extraction
+
+Convert text → structured JSON (most powerful approach)
+
+---
+
+# 6. Context passing in RAG systems
+
+Pipeline:
+
+```text id="r1"
+Query
+ ↓
+Retriever
+ ↓
+Top-k chunks
+ ↓
+Reranker
+ ↓
+Context builder
+ ↓
+LLM
+```
+
+---
+
+# 7. Context passing in multi-agent systems
+
+Example:
+
+```text id="a1"
+Planner → passes plan only
+Coder → passes code + interfaces
+Tester → passes errors only
+Reviewer → passes diffs only
+```
+
+Each agent gets **minimal sufficient context**
+
+---
+
+# 8. Context explosion problem
+
+Without control:
+
+\text{Context Size} \propto n_{agents} \times n_{steps}
+
+So systems degrade quickly.
+
+---
+
+# 9. Techniques to control context size
+
+---
+
+## 9.1 Top-k retrieval
+
+Only pass most relevant items.
+
+---
+
+## 9.2 Context budgets per agent
+
+Each agent has token limits.
+
+---
+
+## 9.3 Progressive disclosure
+
+Reveal context only when needed.
+
+---
+
+## 9.4 Lazy loading (on-demand context)
+
+Agents fetch missing info only when required.
+
+---
+
+# 10. Versioning context (VERY IMPORTANT)
+
+Every context packet should include:
+
+```json id="v1"
+{
+  "version": 3,
+  "source": "retriever_v2",
+  "timestamp": "...",
+  "confidence": 0.87
+}
+```
+
+Prevents:
+
+* stale context bugs
+* inconsistent agent decisions
+
+---
+
+# 11. Common mistakes
+
+❌ dumping full conversation into every agent
+❌ no context filtering
+❌ no summarization layer
+❌ mixing structured + unstructured context
+❌ not versioning memory
+❌ ignoring token budgets
+
+---
+
+# 12. Production architecture
+
+```text id="pa1"
+User Query
+   ↓
+Orchestrator
+   ↓
+Context Builder
+   ├── Retrieval (RAG)
+   ├── Memory fetch
+   ├── Summarization
+   ├── Filtering
+   ↓
+Agent-specific context packets
+   ↓
+Agent Pool
+   ↓
+Results
+   ↓
+Aggregator
+```
+
+---
+
+# 13. Key design insight
+
+> Context is not data — it is a *compressed decision surface*.
+
+Good context:
+
+* minimal
+* relevant
+* structured
+* time-aware
+* versioned
+
+Bad context:
+
+* raw dumps
+* redundant history
+* unfiltered documents
+
+---
+
+# 14. Senior-level interview answer
+
+Context passing in multi-agent systems refers to the controlled propagation of relevant information between agents to enable coordinated reasoning while minimizing token usage and noise. Effective strategies include retrieval-based filtering, structured context representation, hierarchical summarization, and memory-augmented retrieval systems.
+
+In production architectures, an orchestrator typically constructs agent-specific context packets by combining retrieved knowledge, summarized history, and structured state representations. This ensures that each agent receives only the minimal necessary information required for its task, improving efficiency, reducing hallucination, and controlling cost.
+::`
+
+---
+
+# 15. Final intuition
+
+| Strategy           | Analogy                  |
+| ------------------ | ------------------------ |
+| full context       | giving entire book       |
+| filtered context   | giving relevant chapters |
+| structured context | giving bullet points     |
+| memory retrieval   | googling when needed     |
+| summary            | executive briefing       |
+
+---
+
+If you want, I can go deeper into:
+
+* how to design a **context compiler (production-grade system for agent inputs)**
+* or how LangGraph manages **stateful context passing safely**
+* or how to build **token-efficient multi-agent systems at scale (very senior topic)**

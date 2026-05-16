@@ -1,0 +1,337 @@
+Runaway cost in agentic AI systems happens when the system **keeps calling LLMs + tools without strict economic boundaries**. In production, this is treated as a **financial safety problem**, not just an engineering issue.
+
+A senior framing:
+
+> Cost control = controlling tokens, tool calls, retries, and worst-case execution paths.
+
+---
+
+# 1. Where costs actually come from
+
+In agent systems, cost is usually dominated by:
+
+* LLM inference (most expensive)
+* tool/API calls (search, DB, external APIs)
+* repeated reasoning loops (agents)
+* long context windows (token explosion)
+* reranking / multi-agent chatter
+
+---
+
+## Cost decomposition
+
+\text{Total Cost} = C_{LLM} + C_{tools} + C_{retrieval} + C_{retries}
+
+---
+
+# 2. Root causes of runaway cost
+
+* infinite agent loops
+* uncontrolled tool usage
+* large context accumulation
+* multi-agent chatter explosion
+* repeated retrieval calls
+* reflection loops without limits
+* poor routing (always using expensive model)
+
+---
+
+# 3. Core strategies to prevent runaway cost
+
+---
+
+# 3.1 Hard budgets (MOST IMPORTANT)
+
+You enforce explicit limits:
+
+* max tokens per request
+* max tool calls
+* max agent steps
+* max retries
+* max latency
+
+---
+
+## Example:
+
+```text id="b1"
+max_llm_calls = 5
+max_tool_calls = 3
+max_tokens = 4000
+```
+
+If exceeded → stop or fallback.
+
+---
+
+# 3.2 Token budgeting (per request control)
+
+Track tokens at each step:
+
+* prompt tokens
+* response tokens
+* tool outputs
+
+---
+
+## Key idea:
+
+> You must budget before execution, not after.
+
+---
+
+# 3.3 Model routing (biggest cost lever)
+
+Not all queries need GPT-4-class models.
+
+Use tiered routing:
+
+| Task          | Model       |
+| ------------- | ----------- |
+| simple QA     | small model |
+| extraction    | cheap model |
+| reasoning     | mid model   |
+| complex agent | large model |
+
+---
+
+## Benefit:
+
+> 10–50x cost reduction in real systems
+
+---
+
+# 3.4 Tool-call limiting
+
+Agents often overuse tools.
+
+Control via:
+
+* max tool calls per query
+* per-tool quotas
+* cooldown windows
+
+---
+
+## Example:
+
+```text id="t1"
+search() max = 2
+database_query() max = 3
+```
+
+---
+
+# 3.5 Caching (huge cost saver)
+
+## Types:
+
+### 1. LLM response cache
+
+* identical query → reuse answer
+
+### 2. Retrieval cache
+
+* same embedding → reuse top-k docs
+
+### 3. Tool result cache
+
+* API calls cached (weather, stock, etc.)
+
+---
+
+## Impact:
+
+> 30–80% cost reduction in production workloads
+
+---
+
+# 3.6 Early stopping (avoid overthinking)
+
+Stop execution when:
+
+* answer confidence is high
+* no new information is being added
+* repeated reasoning detected
+
+---
+
+\text{Stop if } \Delta \text{information gain} \approx 0
+
+---
+
+# 3.7 Context window control
+
+Cost grows with tokens.
+
+Fix:
+
+* summarization
+* chunk pruning
+* context compression
+* selective retrieval
+
+---
+
+# 3.8 Limit agent loops (critical)
+
+Set:
+
+* max steps = 3–8
+* max reflection rounds = 1–2
+
+Prevents exponential cost growth.
+
+---
+
+# 3.9 Batch operations
+
+Instead of:
+
+* multiple LLM calls
+
+Do:
+
+* batch prompts
+* batch embeddings
+* batch reranking
+
+---
+
+# 3.10 Use lightweight models for intermediate steps
+
+Examples:
+
+* planner → small model
+* router → tiny classifier
+* critic → lightweight evaluator
+
+---
+
+# 4. System-level architecture for cost control
+
+```text id="a1"
+User Query
+   ↓
+Cost Estimator (predict complexity)
+   ↓
+Model Router (cheap → expensive escalation)
+   ↓
+Agent Execution (budget-aware)
+   ↓
+Tool Calls (capped)
+   ↓
+LLM reasoning (token-limited)
+   ↓
+Cost Monitor (real-time tracking)
+   ↓
+Stop / fallback if budget exceeded
+```
+
+---
+
+# 5. Advanced techniques (production-grade)
+
+---
+
+## 5.1 Dynamic cost prediction
+
+Estimate cost before execution:
+
+* query complexity classifier
+* predicted token usage
+* expected tool calls
+
+---
+
+## 5.2 Early fallback system
+
+If cost exceeds threshold:
+
+* switch to cheaper model
+* return partial answer
+* skip tools
+
+---
+
+## 5.3 Multi-tier execution
+
+Example:
+
+1. fast path (no tools, small model)
+2. standard path (RAG + mid model)
+3. premium path (agent + tools + large model)
+
+---
+
+## 5.4 Rate limiting per user / session
+
+Prevent abuse:
+
+* per-user token caps
+* per-session tool limits
+
+---
+
+## 5.5 Circuit breakers
+
+If system detects:
+
+* repeated failures
+* excessive loops
+* high latency
+
+→ immediately terminate execution
+
+---
+
+# 6. Common mistakes
+
+❌ No per-request budget
+❌ Letting agents self-decide tool usage freely
+❌ No caching layer
+❌ Always using large model
+❌ No loop limits
+❌ No monitoring dashboards
+
+---
+
+# 7. What production systems actually track
+
+* cost per request
+* tokens per tool call
+* average tool calls per query
+* retry rates
+* worst-case execution paths
+* cost per successful answer
+
+---
+
+# 8. Senior-level interview answer
+
+Runaway costs in agentic AI systems are controlled through a combination of hard budget constraints, model routing strategies, caching mechanisms, and execution limits. Production systems enforce token budgets, tool-call caps, and maximum agent steps to prevent unbounded execution.
+
+Additionally, model routing ensures that simpler tasks are handled by smaller, cheaper models, while caching reduces redundant computation across LLM calls and tool invocations. Real-time cost monitoring and circuit breakers are also used to terminate or downgrade execution when predefined thresholds are exceeded, ensuring predictable and bounded operational costs.
+::`
+
+---
+
+# 9. Final intuition
+
+Think of cost control like:
+
+| Risk                  | Control                        |
+| --------------------- | ------------------------------ |
+| too many tokens       | context limits + summarization |
+| too many LLM calls    | step limits                    |
+| too many tool calls   | tool quotas                    |
+| expensive model usage | routing                        |
+| repeated loops        | circuit breakers               |
+
+---
+
+If you want, I can go deeper into:
+
+* how OpenAI-style systems do **real-time token budgeting**
+* or how to design a **cost-aware agent router (very senior production design)**
+* or how companies reduce inference cost by **10–20x using caching + routing + batching strategies**

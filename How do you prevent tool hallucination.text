@@ -1,0 +1,302 @@
+Tool hallucination is when an LLM **calls a tool that doesn’t exist, uses the wrong schema, or invokes it at the wrong time**.
+
+In production agent systems, this is a major reliability issue—because a single bad tool call can break an entire workflow.
+
+> Senior framing: tool hallucination is a **control problem, not a model intelligence problem**.
+
+---
+
+# 1. What tool hallucination looks like
+
+Common failures:
+
+* calling non-existent tools
+* wrong arguments / schema mismatch
+* using tools when not needed
+* skipping required tools
+* chaining tools incorrectly
+
+Example:
+
+```json
+{
+  "tool": "get_stock_price_v2",
+  "input": { "ticker_symbol": 123 }  ❌ wrong type
+}
+```
+
+---
+
+# 2. Root causes
+
+Tool hallucination happens due to:
+
+* ambiguous tool descriptions
+* weak schema enforcement
+* too much freedom in prompting
+* no routing constraints
+* LLM overgeneralization
+* lack of tool grounding during training
+
+---
+
+# 3. Core strategies to prevent tool hallucination
+
+---
+
+# 3.1 Strict function calling (MOST IMPORTANT)
+
+Instead of free-form text:
+
+❌ Bad:
+
+```
+Call weather API for Delhi
+```
+
+✔ Good:
+
+```json
+{
+  "name": "get_weather",
+  "arguments": {
+    "city": "Delhi"
+  }
+}
+```
+
+---
+
+## Why it works:
+
+* constrained output space
+* parser-enforced correctness
+* schema validation
+
+---
+
+# 3.2 Tool schema validation (hard guardrail)
+
+Every tool must have:
+
+* input types
+* required fields
+* enums
+* validation rules
+
+Example:
+
+```json id="s1"
+{
+  "name": "search",
+  "parameters": {
+    "query": "string (required)"
+  }
+}
+```
+
+If invalid → reject execution.
+
+---
+
+# 3.3 Tool grounding via descriptions
+
+LLMs choose tools based on descriptions.
+
+Bad:
+
+> “search tool”
+
+Good:
+
+> “Use this tool ONLY for retrieving external documents or web data when the answer is not in context.”
+
+Clear semantic boundaries reduce hallucination.
+
+---
+
+# 3.4 Tool router (pre-decision layer)
+
+Instead of letting LLM freely choose tools:
+
+```text id="r1"
+User Query → Tool Classifier → Allowed Tool(s)
+```
+
+This removes ambiguity entirely.
+
+---
+
+## Example routing logic:
+
+| Query type  | Tool          |
+| ----------- | ------------- |
+| math        | calculator    |
+| factual     | search        |
+| document QA | vector DB     |
+| coding      | code executor |
+
+---
+
+# 3.5 Constrained decoding (advanced)
+
+Instead of letting LLM generate arbitrary tokens:
+
+* restrict output to tool schema tokens only
+* grammar-based decoding
+
+This eliminates invalid tool calls completely.
+
+---
+
+# 3.6 Tool whitelist enforcement
+
+At runtime:
+
+* only allow registered tools
+* reject unknown tool names
+
+```text id="w1"
+if tool not in registry:
+    raise error
+```
+
+---
+
+# 3.7 Few-shot tool usage examples
+
+Provide correct patterns:
+
+```text id="e1"
+User: What is 20% of 500?
+Tool: calculator
+Arguments: {"expression": "0.2 * 500"}
+```
+
+This strongly anchors behavior.
+
+---
+
+# 3.8 Separate planning and execution (Planner–Executor)
+
+Planner decides:
+
+* whether a tool is needed
+
+Executor only:
+
+* executes allowed tools
+
+This reduces hallucinated tool calls.
+
+---
+
+# 3.9 Tool selection verification layer
+
+Before execution:
+
+```text id="v1"
+LLM output → Validator → Accept/Reject
+```
+
+Validator checks:
+
+* tool exists
+* arguments valid
+* tool appropriate for task
+
+---
+
+# 3.10 Self-correction loop (reflection)
+
+If tool call fails:
+
+```text id="f1"
+Tool error → LLM feedback → corrected call
+```
+
+This improves robustness.
+
+---
+
+# 4. Advanced production pattern (best practice)
+
+## Hybrid control system:
+
+```text id="h1"
+User Query
+   ↓
+Tool Router (classifier)
+   ↓
+LLM (structured function call)
+   ↓
+Schema Validator
+   ↓
+Tool Execution
+   ↓
+Reflection (optional retry)
+```
+
+---
+
+# 5. Cost-aware prevention strategy
+
+Avoid unnecessary tool calls:
+
+* use embeddings to detect “tool-needed vs not-needed”
+* lightweight classifier first
+
+---
+
+# 6. Common mistakes (interview traps)
+
+❌ relying only on prompting
+❌ no schema validation
+❌ no tool registry constraints
+❌ letting LLM free-type tool names
+❌ no fallback strategy on tool failure
+
+---
+
+# 7. Why hallucination still happens even with GPT-level models
+
+Because:
+
+> tool usage is a **structural constraint problem, not a language understanding problem**
+
+LLMs:
+
+* optimize likelihood of next token
+* not correctness of tool invocation
+
+So guardrails are mandatory.
+
+---
+
+# 8. Senior-level interview answer
+
+Tool hallucination in agentic systems is mitigated by enforcing strict structural constraints on tool invocation. This includes the use of function calling with schema validation, tool whitelisting, and constrained decoding to restrict outputs to valid tool formats.
+
+In production systems, additional safeguards such as tool routing classifiers, planner–executor separation, and post-generation validation layers are used to ensure that only contextually appropriate and schema-compliant tool calls are executed. Reflection loops are often added to recover from failed or invalid tool executions.
+::`
+
+---
+
+# 9. Final intuition
+
+Think of tool hallucination like:
+
+| Problem              | Fix                    |
+| -------------------- | ---------------------- |
+| wrong tool choice    | routing layer          |
+| wrong format         | schema validation      |
+| wrong timing         | planner-executor split |
+| random tool guessing | constrained decoding   |
+
+---
+
+If you want, I can go deeper into:
+
+* how OpenAI function calling internally reduces hallucinations
+* or how to design a **production-grade tool router (low latency + high accuracy)**
+* or how multi-tool agents coordinate safely in large systems (very senior architecture topic)

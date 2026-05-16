@@ -1,0 +1,570 @@
+# Fine-Tuning vs RAG vs Prompt Engineering — Senior AI Engineer Explanation
+
+These are three fundamentally different ways of improving LLM behavior.
+
+A very common senior-level interview question is:
+
+```text id="v5xjlwm"
+“When should you use:
+- prompt engineering,
+- RAG,
+- or fine-tuning?”
+```
+
+Strong candidates understand:
+
+* tradeoffs
+* architecture implications
+* operational cost
+* scalability
+* reliability
+* production constraints
+
+---
+
+# High-Level Comparison
+
+| Technique          | Purpose                   | Changes Model Weights? | External Knowledge? |
+| ------------------ | ------------------------- | ---------------------- | ------------------- |
+| Prompt Engineering | Guide behavior            | No                     | No                  |
+| RAG                | Inject external knowledge | No                     | Yes                 |
+| Fine-Tuning        | Change model behavior     | Yes                    | Sometimes           |
+
+---
+
+# 1. Prompt Engineering
+
+Prompt engineering means:
+
+> improving outputs by carefully designing prompts and instructions.
+
+No training happens.
+
+The model weights remain unchanged.
+
+---
+
+# Example
+
+```text id="jlwm91"
+You are a senior AI architect.
+Explain transformers step-by-step with production examples.
+```
+
+This changes:
+
+* style
+* format
+* reasoning behavior
+* structure
+
+without modifying the model.
+
+---
+
+# What Prompt Engineering Can Control
+
+* tone
+* formatting
+* role behavior
+* chain-of-thought style
+* output constraints
+* structured outputs
+* tool usage instructions
+
+---
+
+# Advantages
+
+* fastest iteration
+* cheapest approach
+* no training required
+* easy experimentation
+* ideal for prototyping
+
+---
+
+# Limitations
+
+Prompt engineering cannot reliably:
+
+* teach new knowledge
+* update factual information permanently
+* deeply change reasoning capabilities
+* enforce strict domain expertise
+
+Large prompts also:
+
+* increase latency
+* increase token cost
+* create context-window pressure
+
+---
+
+# Production Use Cases
+
+Prompt engineering is ideal for:
+
+* workflow orchestration
+* agents
+* output formatting
+* system instructions
+* role conditioning
+* rapid iteration
+
+---
+
+# 2. RAG (Retrieval-Augmented Generation)
+
+RAG combines:
+
+* retrieval systems
+* vector search
+* LLM generation
+
+to inject external knowledge dynamically.
+
+---
+
+# Core Idea
+
+Instead of retraining the model:
+
+```text id="jlwm92"
+Retrieve relevant information at inference time.
+```
+
+---
+
+# Architecture
+
+Typical RAG pipeline:
+
+```text id="jlwm93"
+Documents
+   ↓
+Chunking
+   ↓
+Embeddings
+   ↓
+Vector Database
+   ↓
+Similarity Search
+   ↓
+Retrieve Top-k Chunks
+   ↓
+Inject into Prompt
+   ↓
+LLM Generates Answer
+```
+
+---
+
+# Why RAG Exists
+
+LLMs:
+
+* have stale training data
+* hallucinate
+* cannot memorize enterprise knowledge safely
+
+RAG solves this.
+
+---
+
+# Advantages
+
+* dynamic knowledge updates
+* no retraining required
+* cheaper than fine-tuning
+* enterprise-friendly
+* grounded responses
+* citations possible
+
+---
+
+# Best Use Cases
+
+RAG is ideal for:
+
+* enterprise chatbots
+* internal documentation
+* AI copilots
+* search systems
+* customer support
+* legal/finance knowledge systems
+
+---
+
+# Limitations
+
+RAG does NOT fundamentally change:
+
+* reasoning ability
+* model behavior
+* writing style
+* planning capability
+
+It only improves:
+
+* knowledge grounding
+
+---
+
+# Important Senior-Level Insight
+
+RAG quality depends heavily on:
+
+* chunking strategy
+* embeddings quality
+* reranking
+* retrieval precision
+* prompt construction
+* context compression
+
+Most production failures happen in retrieval layers, not the LLM itself.
+
+---
+
+# 3. Fine-Tuning
+
+Fine-tuning means:
+
+> updating model weights using additional training data.
+
+This permanently changes model behavior.
+
+---
+
+# Example
+
+Train model on:
+
+* legal documents
+* medical QA
+* company tone
+* coding style
+* tool-calling patterns
+
+The model internalizes patterns.
+
+---
+
+# What Fine-Tuning Changes
+
+Fine-tuning can improve:
+
+* domain adaptation
+* response style
+* structured outputs
+* tool calling reliability
+* task specialization
+* workflow consistency
+
+---
+
+# Types of Fine-Tuning
+
+---
+
+## Full Fine-Tuning
+
+Update all model parameters.
+
+Very expensive.
+
+---
+
+## PEFT / LoRA
+
+Parameter-efficient fine-tuning.
+
+Train only small adapter layers.
+
+Much cheaper.
+
+Widely used in production.
+
+---
+
+# Advantages
+
+* persistent behavior changes
+* reduced prompt size
+* improved consistency
+* better domain specialization
+* lower inference token usage
+
+---
+
+# Limitations
+
+Fine-tuning is NOT ideal for:
+
+* rapidly changing knowledge
+* frequently updated documents
+* real-time enterprise data
+
+Why?
+
+Because retraining repeatedly is expensive.
+
+---
+
+# Important Misconception
+
+Fine-tuning is NOT a replacement for RAG.
+
+Very common interview trap.
+
+---
+
+# Why Fine-Tuning Cannot Replace RAG
+
+Suppose:
+
+* company documents change daily
+
+Fine-tuning would require:
+
+* retraining constantly
+
+This is impractical.
+
+RAG is better for dynamic knowledge.
+
+---
+
+# Senior-Level Insight
+
+---
+
+## Fine-Tuning Improves Behavior
+
+Examples:
+
+* output formatting
+* domain tone
+* structured JSON
+* coding style
+* agent planning patterns
+
+---
+
+## RAG Improves Knowledge Access
+
+Examples:
+
+* enterprise docs
+* PDFs
+* live databases
+* recent information
+
+---
+
+# Best Real-World Architecture
+
+Modern production systems often combine all three.
+
+---
+
+# Enterprise Architecture
+
+```text id="jlwm94"
+Prompt Engineering
+        +
+RAG Retrieval
+        +
+Light Fine-Tuning
+```
+
+This is extremely common.
+
+---
+
+# Example
+
+## Prompt Engineering
+
+Controls:
+
+* system behavior
+* formatting
+* workflow
+
+---
+
+## RAG
+
+Provides:
+
+* enterprise knowledge
+* current information
+
+---
+
+## Fine-Tuning
+
+Optimizes:
+
+* domain-specific outputs
+* structured generation
+* tool usage consistency
+
+---
+
+# Cost Comparison
+
+| Technique          | Cost   |
+| ------------------ | ------ |
+| Prompt Engineering | Low    |
+| RAG                | Medium |
+| Fine-Tuning        | High   |
+
+---
+
+# Latency Comparison
+
+| Technique          | Latency Impact         |
+| ------------------ | ---------------------- |
+| Prompt Engineering | low                    |
+| RAG                | retrieval overhead     |
+| Fine-Tuning        | low inference overhead |
+
+---
+
+# Scalability Comparison
+
+| Technique | Dynamic Knowledge | Persistent Behavior |
+|---|---|
+| Prompt Engineering | weak | weak |
+| RAG | excellent | weak |
+| Fine-Tuning | weak | excellent |
+
+---
+
+# Agentic AI Perspective
+
+In agentic systems:
+
+---
+
+## Prompt Engineering
+
+Controls:
+
+* reasoning strategy
+* tool instructions
+* planning behavior
+
+---
+
+## RAG
+
+Provides:
+
+* memory retrieval
+* external context
+* grounding
+
+---
+
+## Fine-Tuning
+
+Improves:
+
+* tool-call reliability
+* structured outputs
+* agent consistency
+
+---
+
+# Common Interview Question
+
+```text id="jlwm95"
+“When would you choose fine-tuning over RAG?”
+```
+
+Strong answer:
+
+Use RAG when the problem is primarily knowledge retrieval and the data changes frequently.
+
+Use fine-tuning when the problem is behavioral adaptation:
+
+* consistent formatting,
+* domain-specific style,
+* tool invocation reliability,
+* or specialized workflows.
+
+In production systems, RAG and fine-tuning are often complementary rather than competing approaches.
+::}
+
+---
+
+# Another Strong Senior Insight
+
+Prompt engineering controls the model temporarily.
+
+RAG augments the model dynamically.
+
+Fine-tuning changes the model permanently.
+::}
+
+That framing is very strong in interviews.
+
+---
+
+# Common Mistakes Junior Engineers Make
+
+---
+
+## Mistake 1
+
+Using fine-tuning for dynamic enterprise data.
+
+Bad idea.
+
+Use RAG instead.
+
+---
+
+## Mistake 2
+
+Using giant prompts instead of retrieval.
+
+Leads to:
+
+* expensive inference
+* noisy context
+* poor scalability
+
+---
+
+## Mistake 3
+
+Assuming fine-tuning improves factual correctness.
+
+Not necessarily.
+
+RAG often improves factuality more effectively.
+
+---
+
+# Final Intuition
+
+Think of them like this:
+
+| Technique          | Human Analogy              |
+| ------------------ | -------------------------- |
+| Prompt Engineering | giving instructions        |
+| RAG                | giving reference materials |
+| Fine-Tuning        | long-term training         |
+
+Modern GenAI systems usually combine all three strategically depending on:
+
+* cost
+* latency
+* freshness
+* reliability
+* scalability
+* operational complexity.

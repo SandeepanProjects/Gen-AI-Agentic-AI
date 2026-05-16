@@ -1,0 +1,319 @@
+Chunking documents is one of the most important (and most underestimated) parts of a production RAG system. Bad chunking will destroy retrieval quality even if your embeddings and vector DB are excellent.
+
+At a senior level, chunking is about:
+
+> **balancing semantic completeness, token constraints, and retrieval precision.**
+
+---
+
+# 1. Why Chunking Exists
+
+LLMs and embedding models cannot process entire documents efficiently, so we split documents into smaller units:
+
+* fit into embedding model limits
+* improve retrieval granularity
+* reduce noise in vector search
+
+But the goal is NOT just splitting text — it’s:
+
+> preserving meaning while creating retrievable units.
+
+---
+
+# 2. Core Tradeoff in Chunking
+
+| Small chunks              | Large chunks              |
+| ------------------------- | ------------------------- |
+| high precision            | high context completeness |
+| better retrieval accuracy | better semantic flow      |
+| more vector DB entries    | higher noise per chunk    |
+
+---
+
+# 3. Standard Production Chunking Pipeline
+
+```text id="c1"
+Raw Document
+   ↓
+Cleaning & normalization
+   ↓
+Structure detection (headings, tables)
+   ↓
+Chunking strategy selection
+   ↓
+Overlap addition
+   ↓
+Metadata attachment
+   ↓
+Embedding
+```
+
+---
+
+# 4. Common Chunking Strategies
+
+## 4.1 Fixed-size Token Chunking (Baseline)
+
+Split text into fixed token windows.
+
+\text{chunk size} = 200 \sim 800 \text{ tokens}
+
+### Example:
+
+```text id="c2"
+Chunk 1: tokens 1–500
+Chunk 2: tokens 400–900 (overlap)
+```
+
+### Pros:
+
+* simple
+* predictable
+* fast
+
+### Cons:
+
+* breaks semantic boundaries
+* splits ideas mid-sentence
+
+---
+
+# 5. Sliding Window Chunking (Improved Baseline)
+
+Adds overlap between chunks:
+
+\text{overlap} = 10% \sim 20%
+
+### Why overlap matters:
+
+Ensures:
+
+* continuity of meaning
+* no loss of context at boundaries
+
+---
+
+# 6. Sentence-Based Chunking
+
+Split by sentence boundaries:
+
+Example:
+
+* paragraph → sentences → grouped sentences
+
+### Pros:
+
+* preserves grammar
+* better readability
+
+### Cons:
+
+* variable chunk sizes
+* inconsistent token distribution
+
+---
+
+# 7. Paragraph / Section-Based Chunking (Best for Docs)
+
+Use document structure:
+
+* headings
+* subheadings
+* sections
+
+Example:
+
+```text id="c3"
+## What is Attention?
+(paragraphs…)
+
+## Multi-head Attention
+(paragraphs…)
+```
+
+### Pros:
+
+* semantically clean
+* aligns with human structure
+* best for enterprise docs
+
+---
+
+# 8. Semantic Chunking (Advanced)
+
+Instead of fixed rules:
+
+> use embeddings to detect topic shifts
+
+### How it works:
+
+* compute sentence embeddings
+* detect similarity drop
+* split when topic changes
+
+\cos(\theta) < \tau \Rightarrow \text{new chunk boundary}
+
+### Pros:
+
+* highly semantic
+* adaptive
+
+### Cons:
+
+* expensive
+* more complex pipeline
+
+---
+
+# 9. Hierarchical Chunking (Production-Grade)
+
+Used in enterprise RAG systems.
+
+Structure:
+
+```text id="c4"
+Document
+ ├── Section chunks
+ │    ├── Paragraph chunks
+ │    │     ├── Sentence chunks
+```
+
+Retrieval happens at multiple levels:
+
+1. coarse retrieval (section)
+2. fine retrieval (paragraph)
+
+---
+
+# 10. Recursive Chunking (LlamaIndex-style)
+
+Algorithm:
+
+* split by headings
+* if too large → split again
+* recursively refine
+
+Used in:
+
+* LlamaIndex systems
+
+---
+
+# 11. Token-Aware Chunking (Critical in Production)
+
+Chunking must respect model token limits:
+
+\text{chunk size} \leq \text{embedding model max tokens}
+
+Typical values:
+
+* 256–512 tokens (high precision)
+* 512–1024 tokens (balanced)
+
+---
+
+# 12. Metadata-Enriched Chunking (VERY IMPORTANT)
+
+Each chunk should store:
+
+* document ID
+* section title
+* page number
+* timestamp
+* source URL
+* hierarchy path
+
+Example:
+
+```json
+{
+  "chunk": "...text...",
+  "doc_id": "ml-paper-1",
+  "section": "Attention Mechanism",
+  "page": 12
+}
+```
+
+---
+
+# 13. Table & Code Chunking
+
+Special handling required:
+
+## Tables:
+
+* split row-wise or column-wise carefully
+* preserve headers
+
+## Code:
+
+* function-level chunking
+* class-level chunking
+* AST-based splitting (best)
+
+---
+
+# 14. Chunk Size Guidelines (Production Heuristics)
+
+| Use Case        | Chunk Size     |
+| --------------- | -------------- |
+| QA over docs    | 200–400 tokens |
+| technical docs  | 400–800 tokens |
+| code retrieval  | function-level |
+| legal documents | section-based  |
+| RAG chatbots    | 300–600 tokens |
+
+---
+
+# 15. Common Chunking Mistakes
+
+❌ Splitting mid-sentence
+❌ No overlap → context loss
+❌ Too large chunks → poor retrieval precision
+❌ No metadata → weak traceability
+❌ Ignoring document structure
+❌ Same strategy for all document types
+
+---
+
+# 16. Impact on RAG Quality
+
+Chunking affects:
+
+* retrieval accuracy (↑ or ↓ 50%+)
+* hallucination rate
+* context relevance
+* latency
+* cost of embeddings
+* reranker effectiveness
+
+---
+
+# 17. Senior-Level Insight
+
+A strong interview framing:
+
+Chunking is not just a preprocessing step in RAG — it defines the granularity of retrieval and directly controls the tradeoff between semantic precision and context completeness.
+
+Production systems typically combine structural chunking, token-aware limits, and overlap strategies, often augmented with semantic boundary detection to preserve meaning while optimizing retrieval accuracy.
+::`
+
+---
+
+# 18. Final Intuition
+
+Think of chunking like:
+
+| Strategy              | Analogy                                   |
+| --------------------- | ----------------------------------------- |
+| Fixed chunking        | cutting a book every 500 words            |
+| Semantic chunking     | cutting at topic boundaries               |
+| Hierarchical chunking | table of contents + chapters + paragraphs |
+
+---
+
+If you want next-level depth, I can also explain:
+
+* how chunking interacts with reranking (critical in production)
+* optimal chunk size derivation mathematically
+* or how ChatGPT-style systems dynamically chunk during ingestion + query time (very senior-level system design topic)

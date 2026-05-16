@@ -1,0 +1,296 @@
+# Fixed-size vs Semantic Chunking — Senior AI Engineer Explanation
+
+This is a key design decision in production RAG systems because it directly impacts:
+
+* retrieval accuracy
+* hallucination rate
+* embedding quality
+* latency and cost
+
+The difference is simple in concept but very important in practice.
+
+---
+
+# 1. Fixed-Size Chunking
+
+## Definition
+
+> Split text into chunks of equal token length, regardless of meaning.
+
+Example:
+
+\text{chunk size} = 300 \sim 800 \text{ tokens}
+
+---
+
+## How it works
+
+```text id="f1"
+Document:
+"The Transformer architecture was introduced... (long text)"
+
+Chunks:
+Chunk 1 → tokens 0–500
+Chunk 2 → tokens 500–1000
+Chunk 3 → tokens 1000–1500
+```
+
+Often with overlap:
+
+\text{overlap} = 10% \sim 20%
+
+---
+
+## Advantages
+
+### 1. Simple and fast
+
+* easy to implement
+* low compute overhead
+
+### 2. Predictable
+
+* consistent chunk sizes
+* stable indexing
+
+### 3. Scalable
+
+* works well for millions of documents
+
+---
+
+## Disadvantages
+
+### 1. Breaks meaning
+
+Example:
+
+```text id="f2"
+Chunk 1: "The attention mechanism allows tokens to..."
+Chunk 2: "...interact across long distances"
+```
+
+Semantic idea is split.
+
+---
+
+### 2. Retrieval noise
+
+Chunks may contain:
+
+* incomplete thoughts
+* irrelevant partial context
+
+---
+
+### 3. Lower precision in RAG
+
+Embedding represents incomplete meaning → weaker similarity search
+
+---
+
+# 2. Semantic Chunking
+
+## Definition
+
+> Split text based on meaning, topic shifts, or structure rather than fixed length.
+
+---
+
+## How it works
+
+Typical approach:
+
+1. split into sentences
+2. compute embeddings
+3. measure similarity between adjacent sentences
+4. break when topic changes
+
+---
+
+## Mathematical intuition
+
+\cos(\theta) < \tau \Rightarrow \text{topic boundary}
+
+Where:
+
+* similarity below threshold → new chunk
+
+---
+
+## Example
+
+```text id="s1"
+Sentence 1: Attention mechanisms improve NLP models.
+Sentence 2: They allow context-aware representations.
+Sentence 3: The company was founded in 2010.
+```
+
+Semantic chunks:
+
+* Chunk A: Sentence 1 + 2 (ML topic)
+* Chunk B: Sentence 3 (irrelevant topic shift)
+
+---
+
+## Advantages
+
+### 1. High semantic purity
+
+Each chunk represents a coherent idea.
+
+---
+
+### 2. Better retrieval quality
+
+Embeddings are:
+
+* more meaningful
+* less noisy
+* more accurate for similarity search
+
+---
+
+### 3. Better RAG performance
+
+* fewer irrelevant chunks retrieved
+* improved grounding
+* reduced hallucinations
+
+---
+
+## Disadvantages
+
+### 1. Computationally expensive
+
+* requires embedding sentences
+* requires similarity computation
+
+---
+
+### 2. Irregular chunk sizes
+
+Some chunks may be:
+
+* too small
+* too large
+
+---
+
+### 3. Harder to scale
+
+More complex pipeline than fixed chunking.
+
+---
+
+# 3. Direct Comparison
+
+| Feature            | Fixed-Size | Semantic |
+| ------------------ | ---------- | -------- |
+| Complexity         | Low        | High     |
+| Speed              | Fast       | Slower   |
+| Implementation     | Easy       | Complex  |
+| Semantic quality   | Weak       | Strong   |
+| Retrieval accuracy | Medium     | High     |
+| Scalability        | Excellent  | Medium   |
+
+---
+
+# 4. Impact on RAG Systems
+
+## Fixed-size chunking
+
+* works well for:
+
+  * large-scale ingestion
+  * simple QA systems
+  * noisy web data
+
+BUT:
+
+* lower answer precision
+* more hallucinations
+
+---
+
+## Semantic chunking
+
+* works well for:
+
+  * enterprise docs
+  * technical documentation
+  * legal/medical content
+
+BUT:
+
+* higher cost
+* more pipeline complexity
+
+---
+
+# 5. Hybrid Approach (Production Best Practice)
+
+Most real systems use BOTH:
+
+```text id="h1"
+Step 1: Fixed-size coarse chunking
+Step 2: Semantic refinement inside chunks
+Step 3: Reranking during retrieval
+```
+
+This balances:
+
+* scalability
+* accuracy
+
+---
+
+# 6. Where Each is Used
+
+## Fixed-size chunking is used in:
+
+* large-scale ingestion pipelines
+* FAISS-based systems
+* basic RAG prototypes
+* high-throughput systems
+
+---
+
+## Semantic chunking is used in:
+
+* enterprise copilots
+* legal/finance assistants
+* high-precision QA systems
+* knowledge-heavy assistants
+
+---
+
+# 7. Senior-Level Insight
+
+A strong interview explanation:
+
+Fixed-size chunking prioritizes scalability and simplicity by splitting documents into uniform token windows, but may break semantic coherence.
+
+Semantic chunking improves retrieval quality by grouping text based on meaning and topic continuity, typically using embedding similarity or structural cues, but introduces additional computational overhead.
+
+Production RAG systems often combine both approaches, using fixed-size chunking for scalability and semantic refinement for precision-critical workloads.
+::`
+
+---
+
+# 8. Final Intuition
+
+Think of it like:
+
+| Method     | Analogy                              |
+| ---------- | ------------------------------------ |
+| Fixed-size | cutting a book every 500 words       |
+| Semantic   | cutting a book by chapters and ideas |
+
+---
+
+If you want, I can go one level deeper and explain:
+
+* how to choose optimal chunk size mathematically
+* how chunking interacts with reranking quality
+* or how ChatGPT-style systems dynamically re-chunk at query time (very advanced production design)

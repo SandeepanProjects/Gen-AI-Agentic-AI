@@ -1,0 +1,382 @@
+Designing a **multi-agent coding system** is basically building an AI-powered **software engineering pipeline** where different agents act like a real engineering team: planner, developer, reviewer, tester, and debugger.
+
+A senior framing:
+
+> A multi-agent coding system = DAG-based software factory with feedback loops for review, testing, and repair.
+
+---
+
+# 1. High-level architecture
+
+```text id="m1"
+User Request
+   ↓
+Orchestrator (task decomposition)
+   ↓
+Planner Agent
+   ↓
+Code Generator Agent(s)
+   ↓
+Test Agent
+   ↓
+Reviewer / Critic Agent
+   ↓
+Debugger Agent (if failure)
+   ↓
+Final Aggregator
+   ↓
+Output (code + explanation)
+```
+
+---
+
+# 2. Core design principle
+
+> You never let a single agent “own” the full software lifecycle.
+
+Instead you split responsibilities:
+
+* planning ≠ coding ≠ testing ≠ reviewing ≠ fixing
+
+This reduces hallucination and increases reliability.
+
+---
+
+# 3. Key agents in the system
+
+---
+
+## 3.1 Orchestrator (control plane)
+
+Responsibilities:
+
+* break problem into tasks
+* assign to agents
+* enforce budgets
+* manage retries
+* decide parallelism
+
+Think: **engineering manager**
+
+---
+
+## 3.2 Planner agent
+
+Input: user request
+Output: structured plan
+
+Example:
+
+```json id="p1"
+{
+  "tasks": [
+    "design API",
+    "implement function",
+    "write unit tests",
+    "add logging"
+  ]
+}
+```
+
+---
+
+## 3.3 Code generation agent
+
+* writes code per module
+* follows strict interface contracts
+* no testing logic
+
+---
+
+## 3.4 Test agent
+
+* generates unit tests
+* runs validation
+* reports failures
+
+---
+
+## 3.5 Reviewer / critic agent
+
+* checks correctness
+* checks security issues
+* checks performance issues
+* enforces style guides
+
+---
+
+## 3.6 Debugger agent
+
+* reads failing tests
+* fixes code iteratively
+* limited retry budget
+
+---
+
+## 3.7 Aggregator agent
+
+* merges code
+* resolves conflicts
+* produces final output
+
+---
+
+# 4. Execution model (DAG-based)
+
+```text id="d1"
+Planner
+   ↓
+CodeGen (parallel modules)
+   ↓
+Test Generator
+   ↓
+Test Runner
+   ↓
+Reviewer
+   ↓
+(If fail → Debugger loop)
+   ↓
+Aggregator
+```
+
+---
+
+# 5. Shared state (critical design element)
+
+All agents share a **structured workspace**:
+
+```json id="s1"
+{
+  "repo_structure": {},
+  "files": {
+    "main.py": "...",
+    "utils.py": "..."
+  },
+  "tests": {},
+  "errors": [],
+  "plan": {}
+}
+```
+
+---
+
+# 6. Orchestration strategies
+
+---
+
+## 6.1 Sequential pipeline (simple)
+
+* planner → coder → tester → reviewer
+
+✔ simple
+❌ slow
+
+---
+
+## 6.2 Parallel coding (recommended)
+
+* multiple code agents work on modules simultaneously
+
+✔ scalable
+✔ faster
+❌ needs merging logic
+
+---
+
+## 6.3 Event-driven execution
+
+* test failure triggers debugger agent
+* reviewer feedback triggers re-generation
+
+---
+
+# 7. Feedback loops (core intelligence)
+
+```text id="f1"
+Code → Test Fail → Debugger → Fix → Re-test
+```
+
+But must be controlled:
+
+\text{max iterations} = N, ; N \in [2,5]
+
+Otherwise infinite loops occur.
+
+---
+
+# 8. Tooling layer (MCP-style integration)
+
+Agents use tools:
+
+* file system read/write
+* code execution sandbox
+* test runner
+* linter
+* dependency resolver
+
+This is often implemented via **MCP or function calling layer**.
+
+---
+
+# 9. Code execution sandbox (critical)
+
+You must isolate:
+
+* runtime execution
+* dependency installs
+* test runs
+
+Security + reproducibility requirement.
+
+---
+
+# 10. Quality control layers
+
+---
+
+## 10.1 Static analysis
+
+* linting
+* type checking
+* formatting
+
+---
+
+## 10.2 Dynamic testing
+
+* unit tests
+* integration tests
+
+---
+
+## 10.3 LLM-based review
+
+* logic correctness
+* edge cases
+* security review
+
+---
+
+# 11. Failure handling
+
+| Failure            | Fix                    |
+| ------------------ | ---------------------- |
+| test failure       | debugger agent         |
+| wrong plan         | re-planning            |
+| bad code structure | reviewer feedback loop |
+| dependency error   | tool retry             |
+| infinite loop      | step limit             |
+
+---
+
+# 12. Cost + latency control
+
+Multi-agent coding systems can explode in cost.
+
+Controls:
+
+* limit debugging loops
+* reuse code context
+* cache test results
+* only re-run failed tests
+* model routing (small model for tests, large for coding)
+
+---
+
+# 13. Memory system
+
+Agents store:
+
+* previous solutions
+* known patterns
+* reusable utilities
+* repo history
+
+---
+
+This enables:
+
+> learning across coding sessions
+
+---
+
+# 14. Production architecture
+
+```text id="a1"
+User Request
+   ↓
+Orchestrator
+   ↓
+Task Graph Builder (DAG)
+   ↓
+┌─────────────────────────────┐
+│ Parallel Agent Execution     │
+│  - Planner                  │
+│  - CodeGen (multi)         │
+│  - Test Generator          │
+└─────────────────────────────┘
+   ↓
+Execution Sandbox
+   ↓
+Reviewer Agent
+   ↓
+Debugger Loop (if needed)
+   ↓
+Aggregator
+   ↓
+Final Code Output + Report
+```
+
+---
+
+# 15. Key design trade-offs
+
+| Decision            | Trade-off                   |
+| ------------------- | --------------------------- |
+| single agent coding | simplicity vs hallucination |
+| multi-agent coding  | quality vs cost             |
+| parallel execution  | speed vs merge complexity   |
+| event-driven loops  | flexibility vs control      |
+
+---
+
+# 16. Common mistakes
+
+❌ no shared state model
+❌ no test agent separation
+❌ unlimited debug loops
+❌ mixing planner + coder roles
+❌ no sandbox for execution
+❌ no code review stage
+
+---
+
+# 17. Senior-level interview answer
+
+A multi-agent coding system is designed as a DAG-based orchestration pipeline where specialized agents handle distinct responsibilities such as planning, code generation, testing, reviewing, and debugging. The system is coordinated by an orchestrator that decomposes tasks and manages execution flow across agents.
+
+A shared workspace maintains repository state, enabling agents to operate on consistent context. Code generation is parallelized across modules, followed by automated test generation and execution in a sandboxed environment. A reviewer agent evaluates correctness and security, while a debugger agent handles iterative repair within bounded retry limits. This architecture ensures modularity, scalability, and controlled feedback loops for reliable code synthesis.
+::`
+
+---
+
+# 18. Final intuition
+
+Think of it like:
+
+| Agent        | Real-world analogy  |
+| ------------ | ------------------- |
+| planner      | tech lead           |
+| coder        | developer           |
+| tester       | QA engineer         |
+| reviewer     | senior engineer     |
+| debugger     | on-call engineer    |
+| orchestrator | engineering manager |
+
+---
+
+If you want, I can go deeper into:
+
+* how to build this using **LangGraph (real production DAG implementation)**
+* or how GitHub Copilot-like systems internally structure multi-agent coding
+* or how to design a **self-improving coding agent that learns from failures over time (very advanced topic)**

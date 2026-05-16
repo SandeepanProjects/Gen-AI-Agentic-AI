@@ -1,0 +1,365 @@
+Debugging multi-agent systems is less like debugging a single program and more like debugging a **distributed, stochastic workflow system with LLMs inside each node**.
+
+A senior framing:
+
+> You don’t “debug the model” — you debug the **control flow, state transitions, tool calls, and memory interactions across agents**.
+
+---
+
+# 1. Why multi-agent debugging is hard
+
+Multi-agent systems fail because of:
+
+* non-deterministic LLM outputs
+* parallel execution ordering issues
+* hidden state shared across agents
+* tool failures propagating downstream
+* prompt drift across agents
+* memory contamination
+* cost/latency masking failures
+
+So you need **systems-level observability, not just logs**.
+
+---
+
+# 2. Core debugging strategy (3 pillars)
+
+## 2.1 Trace everything (observability)
+
+## 2.2 Reproduce execution (determinism layer)
+
+## 2.3 Isolate failure domains (agent decomposition)
+
+---
+
+# 3. 1. Full system tracing (MOST IMPORTANT)
+
+Every run must generate a **complete execution trace DAG**:
+
+```text id="t1"
+User Query
+  ↓
+Orchestrator
+  ↓
+Planner Agent
+  ↓
+Retriever Agent
+  ↓
+Tool Agent
+  ↓
+Aggregator Agent
+```
+
+Each node logs:
+
+* input
+* output
+* prompt version
+* tool calls
+* latency
+* token usage
+* memory accessed
+
+---
+
+## Example trace record:
+
+```json id="t2"
+{
+  "agent": "retriever",
+  "input": "Tesla risks",
+  "output": ["doc1", "doc2"],
+  "latency_ms": 420,
+  "tokens": 1200,
+  "memory_hits": 3
+}
+```
+
+---
+
+# 4. 2. DAG-level debugging (critical insight)
+
+Multi-agent systems are **DAG executions**, not linear programs.
+
+So debugging means:
+
+* finding failing node
+* tracing upstream dependency
+* identifying broken edge (data flow)
+
+---
+
+## Key idea:
+
+\text{Failure Root Cause} = \text{node} + \text{edge} + \text{state mutation}
+
+---
+
+# 5. 3. Replay-based debugging (VERY powerful)
+
+You must support:
+
+> deterministic replay of an agent run
+
+This requires storing:
+
+* prompts
+* tool outputs
+* model versions
+* random seeds (if applicable)
+* memory state snapshot
+
+---
+
+## Why this matters:
+
+Without replay:
+
+> debugging becomes guesswork
+
+With replay:
+
+> you can isolate exact failure step
+
+---
+
+# 6. 4. Agent-level isolation debugging
+
+Break system into components:
+
+| Agent      | Debug focus                    |
+| ---------- | ------------------------------ |
+| Planner    | bad decomposition              |
+| Retriever  | irrelevant context             |
+| Tool agent | schema failures                |
+| Aggregator | hallucination or merging error |
+
+---
+
+## Strategy:
+
+Run each agent independently with mock inputs.
+
+---
+
+# 7. 5. Tool-call debugging
+
+Most real failures come from tools.
+
+Track:
+
+* tool name
+* input schema
+* output validity
+* latency
+* retry count
+
+---
+
+## Common tool bugs:
+
+* wrong JSON schema
+* silent API failures
+* partial responses
+* stale cache
+
+---
+
+# 8. 6. Memory debugging (hidden failure source)
+
+Memory issues cause subtle bugs:
+
+* wrong retrieval results
+* irrelevant context injection
+* stale user preferences
+* memory conflicts
+
+---
+
+## Debug techniques:
+
+* log memory hits per query
+* inspect retrieved embeddings
+* visualize similarity scores
+* audit memory writes
+
+---
+
+# 9. 7. Prompt versioning (CRITICAL in production)
+
+Every agent must have:
+
+* prompt version ID
+* system prompt hash
+* tool schema version
+
+---
+
+## Why:
+
+Most production bugs are:
+
+> prompt regressions, not code bugs
+
+---
+
+# 10. 8. Latency + cost debugging (often ignored)
+
+Track per agent:
+
+\text{Total Cost} = \sum_{i=1}^{n} (\text{LLM}_i + \text{Tool}_i + \text{Retrieval}_i)
+
+Then break down:
+
+* which agent is expensive
+* which tool dominates cost
+* where loops happen
+
+---
+
+# 11. 9. Distributed failure tracing
+
+When system fails:
+
+You must answer:
+
+* which agent failed?
+* which dependency failed?
+* was it data, tool, or model?
+* did failure propagate?
+
+---
+
+## Use causal chain:
+
+```text id="c1"
+Planner → Retriever → Tool Agent → Aggregator
+              ↑
+           failure here
+```
+
+---
+
+# 12. 10. Golden debugging tools (production stack)
+
+Typical stack includes:
+
+* distributed tracing (OpenTelemetry-style)
+* structured logs per agent
+* vector DB inspection tools
+* prompt version control system
+* replay engine
+* eval dashboards
+
+---
+
+# 13. 11. Evaluation-driven debugging (advanced)
+
+You don’t just debug logs — you run evals:
+
+* task success rate
+* hallucination rate
+* tool accuracy
+* retrieval precision
+* multi-agent consistency
+
+---
+
+## Key idea:
+
+> If you can’t measure it, you can’t debug it.
+
+---
+
+# 14. 12. Common multi-agent failure modes
+
+## ❌ 1. Cascading hallucination
+
+One agent error propagates downstream
+
+---
+
+## ❌ 2. Planner–executor mismatch
+
+Planner assumes wrong execution reality
+
+---
+
+## ❌ 3. Retrieval poisoning
+
+Bad context leads to wrong reasoning
+
+---
+
+## ❌ 4. Tool schema drift
+
+Agent uses outdated tool format
+
+---
+
+## ❌ 5. Aggregation hallucination
+
+Final agent “fills gaps” incorrectly
+
+---
+
+## ❌ 6. Infinite delegation loops
+
+Agents pass tasks endlessly
+
+---
+
+# 15. Production-grade debugging architecture
+
+```text id="a1"
+                ┌──────────────────┐
+User Query →    │ Orchestrator     │
+                └────────┬─────────┘
+                         ↓
+          ┌────────────────────────────────┐
+          │ Distributed Trace Collector    │
+          └────────┬──────────────────────┘
+                   ↓
+     ┌─────────────┬──────────────┬─────────────┐
+     ↓             ↓              ↓
+ Planner       Retriever       Tool Agent
+     ↓             ↓              ↓
+     └─────────────┴──────────────┘
+                   ↓
+            Aggregator Agent
+                   ↓
+         Evaluation + Logging Layer
+                   ↓
+        Replay + Debugging System
+```
+
+---
+
+# 16. Senior-level interview answer
+
+Debugging multi-agent systems requires end-to-end observability across all agents, tools, and shared state transitions. Since these systems are inherently non-deterministic and distributed, traditional debugging approaches are insufficient.
+
+Instead, production systems rely on structured tracing of agent interactions, DAG-based execution logs, and replayable runs to reconstruct failures. Debugging is performed at multiple levels: agent-level isolation, tool-call validation, memory retrieval inspection, and prompt version auditing. Additionally, evaluation metrics and cost/latency breakdowns are used to identify systemic inefficiencies and regression points.
+::`
+
+---
+
+# 17. Final intuition
+
+Think of multi-agent debugging like:
+
+| Layer  | Debug target         |
+| ------ | -------------------- |
+| node   | agent logic          |
+| edge   | data flow            |
+| state  | memory/context       |
+| tools  | external execution   |
+| system | orchestration policy |
+
+---
+
+If you want, I can go deeper into:
+
+* how to build a **LangGraph-style debugger with full execution replay**
+* or how companies implement **production observability for agent swarms**
+* or how to design a **self-healing multi-agent system that auto-detects and fixes failures (very advanced topic)**

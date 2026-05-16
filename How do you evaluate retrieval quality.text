@@ -1,0 +1,250 @@
+Evaluating retrieval quality is one of the most important parts of building a production RAG system—because if retrieval is weak, **generation will always hallucinate or drift**.
+
+A senior framing is:
+
+> Retrieval evaluation measures whether the system is bringing the *right evidence* into the context window under realistic query conditions.
+
+---
+
+# 1. What “good retrieval” actually means
+
+A retrieval system should optimize:
+
+* **Relevance** (are results actually related?)
+* **Coverage** (did we retrieve all necessary evidence?)
+* **Ranking quality** (is best result at top?)
+* **Efficiency** (within latency + top-k constraints)
+
+---
+
+# 2. Core offline metrics (standard in production)
+
+## 2.1 Recall@K (MOST IMPORTANT)
+
+> Did we retrieve at least one relevant document in top-K?
+
+\mathrm{Recall@K} = \frac{\text{relevant docs in top K}}{\text{total relevant docs}}
+
+### Why it matters:
+
+* in RAG, missing the right chunk = hallucination risk
+* recall is more important than precision in first-stage retrieval
+
+---
+
+## 2.2 Precision@K
+
+> Of retrieved top-K, how many are relevant?
+
+\mathrm{Precision@K} = \frac{\text{relevant retrieved}}{K}
+
+### Why it matters:
+
+* controls noise in context window
+* impacts hallucination rate
+
+---
+
+## 2.3 MRR (Mean Reciprocal Rank)
+
+> How early is the first correct result?
+
+\mathrm{MRR} = \frac{1}{|Q|} \sum_{q \in Q} \frac{1}{rank_q}
+
+### Interpretation:
+
+* higher = correct result appears earlier
+* critical for reranking evaluation
+
+---
+
+## 2.4 nDCG (ranking quality metric)
+
+Used when relevance is graded (not binary):
+
+\mathrm{nDCG} = \frac{DCG}{IDCG}
+
+Where DCG rewards:
+
+* relevant docs higher in rank
+
+---
+
+# 3. RAG-specific evaluation metrics (VERY IMPORTANT)
+
+Traditional IR metrics are not enough. RAG needs grounding-based evaluation.
+
+---
+
+## 3.1 Context Precision
+
+> How much of retrieved context is actually useful to answer the query?
+
+* penalizes noisy chunks
+* measures reranker effectiveness
+
+---
+
+## 3.2 Context Recall
+
+> Did retrieved chunks contain all necessary evidence?
+
+* measures chunking + retrieval coverage
+
+---
+
+## 3.3 Faithfulness (downstream metric)
+
+> Does the LLM answer strictly match retrieved context?
+
+* detects hallucination leakage
+
+---
+
+## 3.4 Answer relevance
+
+> Is the final answer actually addressing the question?
+
+---
+
+# 4. Offline evaluation pipeline (production setup)
+
+```text id="e1"
+Query Set (golden dataset)
+      ↓
+Retrieve top-K chunks
+      ↓
+Compare with labeled relevant docs
+      ↓
+Compute Recall@K, MRR, nDCG
+      ↓
+Pass to LLM
+      ↓
+Evaluate faithfulness + correctness
+```
+
+---
+
+# 5. Building a “gold dataset” (critical step)
+
+You need labeled pairs:
+
+```json id="e2"
+{
+  "query": "What is KV cache?",
+  "relevant_docs": ["chunk_12", "chunk_45"]
+}
+```
+
+Sources:
+
+* human labeling
+* synthetic generation (LLM-assisted)
+* click logs / production feedback
+
+---
+
+# 6. Online evaluation (production monitoring)
+
+Offline metrics are not enough. In production, track:
+
+---
+
+## 6.1 Click-through rate (CTR)
+
+* which retrieved docs users interact with
+
+---
+
+## 6.2 Downstream success rate
+
+* did user accept answer?
+* did they re-query?
+
+---
+
+## 6.3 “No answer / fallback rate”
+
+* indicates retrieval failure
+
+---
+
+## 6.4 Latency vs quality tradeoff
+
+* higher recall often increases latency
+
+---
+
+# 7. Evaluating embedding quality (important sub-part)
+
+Embedding models are evaluated using:
+
+* Recall@K
+* MRR
+* clustering purity
+* nearest neighbor accuracy
+
+---
+
+# 8. Evaluating rerankers (critical in production RAG)
+
+Reranker metrics focus on:
+
+* improvement in MRR
+* improvement in nDCG
+* top-1 accuracy boost
+
+---
+
+# 9. Common evaluation mistakes (interview trap)
+
+❌ Only measuring LLM output quality
+❌ Ignoring recall (focusing only on precision)
+❌ No labeled dataset
+❌ Not separating retrieval vs generation metrics
+❌ Evaluating on synthetic-only queries
+
+---
+
+# 10. Key insight (very important)
+
+> In RAG systems, retrieval evaluation matters more than generation evaluation.
+
+Because:
+
+* retrieval is deterministic bottleneck
+* LLM can only use provided context
+
+If retrieval is wrong → LLM cannot recover.
+
+---
+
+# 11. Senior-level interview answer
+
+Retrieval quality in RAG systems is evaluated using information retrieval metrics such as Recall@K, Precision@K, MRR, and nDCG, which measure whether relevant documents are retrieved and correctly ranked.
+
+In production systems, these are complemented by RAG-specific metrics such as context precision, context recall, and faithfulness, which evaluate how well retrieved context supports the final LLM-generated answer.
+
+A robust evaluation framework combines offline labeled datasets with online production signals such as click-through rates and user feedback to continuously monitor and improve retrieval performance.
+::`
+
+---
+
+# 12. Final intuition
+
+Think of evaluation like this:
+
+| Layer      | What you measure               |
+| ---------- | ------------------------------ |
+| Retrieval  | “Did we fetch the right info?” |
+| Ranking    | “Is best info on top?”         |
+| Context    | “Is noise minimized?”          |
+| Generation | “Did model stay grounded?”     |
+
+---
+
+If you want, I can go deeper into:
+
+* how to build a **real evaluation pipeline with Python + FAISS/Pinecone logs**
+* or how companies generate **synthetic evaluation datasets for RAG (very senior topic)**
+* or how to debug retrieval failures systematically in production systems

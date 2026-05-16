@@ -1,0 +1,300 @@
+Reducing hallucinations in RAG is a **system design problem, not just an LLM prompt problem**.
+
+A senior answer is:
+
+> Hallucinations happen when the model is forced to answer without sufficient, relevant, or correctly ranked context—or when it is not constrained to the retrieved evidence.
+
+So you reduce hallucinations by improving **retrieval, grounding, and generation constraints**.
+
+---
+
+# 1. Fix Retrieval First (Most Important)
+
+If retrieval is wrong, everything downstream is wrong.
+
+## a) Improve chunking quality
+
+Bad chunks → irrelevant context → hallucination.
+
+* semantic / structure-aware chunking
+* optimal size (200–800 tokens)
+* overlap (10–20%)
+
+\text{chunk size} = 200 \sim 800 \text{ tokens}
+
+---
+
+## b) Hybrid search (dense + keyword)
+
+Combine:
+
+* vector search (semantic)
+* BM25 (exact match)
+
+Why:
+
+> embeddings miss rare keywords; BM25 misses semantics
+
+---
+
+## c) Reranking (CRITICAL)
+
+First-stage retrieval is noisy.
+
+Use:
+
+* cross-encoder reranker
+* small LLM reranker
+
+Goal:
+
+> maximize precision of top-k context
+
+---
+
+## d) Query rewriting
+
+Rewrite vague queries into explicit retrieval queries:
+
+Example:
+
+```text id="h1"
+User: "Explain caching"
+→ "KV cache in transformers, inference caching, memory optimization in LLMs"
+```
+
+---
+
+## e) Multi-hop retrieval (for complex queries)
+
+Iterative retrieval:
+
+```text id="h2"
+Query → Retrieve → Refine → Retrieve again
+```
+
+---
+
+# 2. Improve Context Quality
+
+## a) Remove irrelevant chunks
+
+Even “slightly related” chunks cause hallucinations.
+
+---
+
+## b) Context compression
+
+Summarize retrieved text before sending to LLM:
+
+* keeps only key facts
+* removes noise
+
+---
+
+## c) Deduplication
+
+Repeated chunks → model overweights same info → distortion.
+
+---
+
+## d) Token budgeting
+
+Ensure most relevant chunks fit in context window.
+
+---
+
+# 3. Constrain the LLM (Very Important)
+
+## a) Force grounded answering
+
+System instruction:
+
+> “Answer only using provided context. If not present, say you don’t know.”
+
+---
+
+## b) Use citation-based generation
+
+Require:
+
+* every claim must be backed by retrieved chunk
+
+This forces grounding.
+
+---
+
+## c) Structured outputs
+
+Instead of free-form generation:
+
+* JSON schema answers
+* function calling style outputs
+
+Reduces creative hallucination.
+
+---
+
+## d) Low temperature decoding
+
+T \to 0 \Rightarrow \text{less randomness, fewer hallucinations}
+
+Use:
+
+* temperature 0–0.3 for factual RAG
+
+---
+
+# 4. Add Verification Layer (Advanced)
+
+## a) LLM-based fact checker
+
+Second model checks:
+
+* “Is answer supported by context?”
+
+---
+
+## b) Self-consistency check
+
+Generate multiple answers → compare agreement
+
+---
+
+## c) Retrieval verification loop
+
+```text id="h3"
+Answer → check against retrieved docs → revise if unsupported
+```
+
+---
+
+# 5. Improve Embeddings (Hidden but important)
+
+Better embeddings = better grounding.
+
+Use:
+
+* domain-specific embeddings
+* query-passage aligned models (E5-style)
+
+---
+
+# 6. Improve Vector Search Quality
+
+## a) Tune ANN parameters
+
+For HNSW:
+
+* increase `efSearch`
+* improves recall → fewer missing facts
+
+---
+
+## b) Increase top-k recall
+
+Retrieve more candidates:
+
+k \uparrow \Rightarrow \text{recall} \uparrow
+
+Then rerank down.
+
+---
+
+# 7. Add “Abstention Behavior” (VERY IMPORTANT)
+
+A strong RAG system should say:
+
+> “I don’t know based on the provided context.”
+
+Instead of guessing.
+
+This single change reduces hallucinations significantly.
+
+---
+
+# 8. Fine-tune generation behavior (optional advanced)
+
+Train or align model to:
+
+* prefer grounded answers
+* penalize unsupported statements
+* reward citation accuracy
+
+---
+
+# 9. Evaluate hallucination systematically
+
+## Metrics:
+
+* faithfulness score
+* groundedness score
+* citation precision
+* answer relevance
+
+---
+
+# 10. Common causes of hallucinations
+
+❌ Poor chunking
+❌ Low-quality embeddings
+❌ Weak reranking
+❌ Too small top-k
+❌ No query rewriting
+❌ No grounding instruction
+❌ Too high temperature
+❌ Missing “abstain” behavior
+
+---
+
+# 11. Production-grade architecture fix
+
+```text id="h4"
+User Query
+   ↓
+Query Rewrite
+   ↓
+Hybrid Retrieval (Vector + BM25)
+   ↓
+Reranking
+   ↓
+Context Compression
+   ↓
+LLM (low temp + grounding constraints)
+   ↓
+Verifier (optional)
+   ↓
+Final Answer
+```
+
+---
+
+# 12. Senior-level interview answer
+
+Hallucinations in RAG systems are primarily caused by weak or irrelevant retrieval, insufficient ranking quality, or unconstrained generation.
+
+They are mitigated by improving retrieval quality through hybrid search, reranking, and query rewriting, as well as enforcing grounding constraints in the LLM via instruction tuning, citation requirements, and low-temperature decoding.
+
+Additional safeguards such as verification models, abstention behavior, and evaluation metrics like faithfulness scoring further reduce hallucination rates in production systems.
+::`
+
+---
+
+# 13. Final intuition
+
+Think of hallucination control like a pipeline:
+
+| Layer      | Fix                       |
+| ---------- | ------------------------- |
+| Data       | better chunking           |
+| Retrieval  | hybrid + rerank           |
+| Context    | clean + compress          |
+| Generation | grounded prompting        |
+| Safety     | verification + abstention |
+
+---
+
+If you want, I can go one level deeper and show:
+
+* a **real production anti-hallucination architecture (ChatGPT-style)**
+* or how companies measure hallucination rates in production RAG systems (very senior ML ops topic)

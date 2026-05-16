@@ -1,0 +1,278 @@
+# Reranking — Senior AI Engineer Explanation
+
+Reranking is a **second-stage ranking step in retrieval systems (especially RAG)** used to improve the quality of top retrieved results.
+
+> It takes an initial set of candidate documents and reorders them using a more accurate (but slower) model.
+
+---
+
+# 1. Why reranking is needed
+
+In RAG systems, retrieval is typically two-stage:
+
+### Stage 1: Fast retrieval (high recall)
+
+* vector search (ANN)
+* BM25 keyword search
+
+Output:
+
+* top 20–100 candidates
+
+But this stage is:
+
+> fast but noisy
+
+So it often includes irrelevant chunks.
+
+---
+
+### Stage 2: Reranking (high precision)
+
+We refine ordering using a stronger model.
+
+---
+
+# 2. Core idea
+
+Instead of directly trusting vector similarity:
+
+\mathrm{sim}(q, d)
+
+We compute a more accurate relevance score:
+
+\mathrm{score}(q, d) = f_{reranker}(q, d)
+
+Where:
+
+* q = query
+* d = document chunk
+* f = cross-encoder / LLM scorer
+
+---
+
+# 3. How reranking works
+
+## Step 1: Retrieve candidates (fast)
+
+Example:
+
+```text id="r1"
+Query: "What is KV cache?"
+
+Top 50 results from vector DB:
+D1, D2, D3, ..., D50
+```
+
+---
+
+## Step 2: Pairwise scoring
+
+Each candidate is scored with query:
+
+```text id="r2"
+score(q, D1)
+score(q, D2)
+...
+score(q, D50)
+```
+
+Unlike embeddings:
+
+> query and document are processed together
+
+---
+
+## Step 3: Reorder results
+
+Sort by relevance score:
+
+```text id="r3"
+D7 > D2 > D19 > D1 ...
+```
+
+Keep top-k (e.g., top 5–10)
+
+---
+
+# 4. Types of rerankers
+
+## (A) Cross-encoder reranker (most common)
+
+### How it works:
+
+* concatenate query + document
+* pass through transformer
+* output relevance score
+
+Example input:
+
+```text
+[QUERY] What is RAG?
+[DOC] RAG is Retrieval-Augmented Generation...
+```
+
+### Pros:
+
+* very accurate
+* context-aware
+
+### Cons:
+
+* slower (O(n) forward passes)
+
+---
+
+## (B) LLM-based reranking
+
+Use an LLM to judge relevance:
+
+* GPT-style model
+* scoring or ranking prompt
+
+---
+
+## (C) Lightweight neural rerankers
+
+* MiniLM-based cross encoders
+* optimized for speed
+
+---
+
+# 5. Why reranking improves RAG quality
+
+Vector search optimizes:
+
+> semantic similarity
+
+But reranking optimizes:
+
+> actual relevance to the question
+
+Because similarity ≠ relevance.
+
+Example:
+
+```text id="r4"
+Query: "How to optimize transformer inference?"
+
+Vector search result:
+- "Transformer architecture overview" ❌ (similar but not useful)
+- "Inference optimization techniques" ✅ (relevant)
+```
+
+Reranking fixes this.
+
+---
+
+# 6. Architecture in production RAG
+
+```text id="r5"
+User Query
+   ↓
+Embedding Model
+   ↓
+Vector DB (ANN Search)
+   ↓
+Top 50 candidates
+   ↓
+Reranker (cross-encoder / LLM)
+   ↓
+Top 5–10 chunks
+   ↓
+LLM generation
+```
+
+---
+
+# 7. Key benefit
+
+| Stage     | Goal           |
+| --------- | -------------- |
+| Retrieval | high recall    |
+| Reranking | high precision |
+
+This separation is critical in production systems.
+
+---
+
+# 8. Tradeoffs
+
+## Pros
+
+* significantly improves answer quality
+* reduces hallucinations
+* better grounding in RAG
+* boosts top-k relevance dramatically
+
+---
+
+## Cons
+
+* adds latency
+* increases compute cost
+* requires careful batching
+
+---
+
+# 9. Performance intuition
+
+If:
+
+* retrieval accuracy = 80%
+* reranker improves top-10 precision to ~95%+
+
+Then:
+
+> downstream LLM hallucinations drop significantly
+
+---
+
+# 10. Where reranking is used
+
+* RAG chatbots
+* enterprise search
+* code search (GitHub Copilot-like systems)
+* recommendation systems
+* legal/medical QA systems
+
+---
+
+# 11. Common mistake (important interview point)
+
+❌ Using vector similarity as final ranking
+❌ Not reranking top-k results
+❌ Using reranker on entire corpus (too slow)
+
+✔ Correct approach:
+
+> ANN retrieval → rerank small candidate set → LLM
+
+---
+
+# 12. Senior-level interview answer
+
+Reranking is a second-stage retrieval step used in RAG systems to improve precision after initial fast retrieval. First-stage retrieval methods like vector search or BM25 return a broad set of candidate documents optimized for recall. A reranker, typically a cross-encoder or lightweight LLM, then jointly evaluates the query and each candidate document to compute a more accurate relevance score, allowing the system to reorder and select the most relevant context for generation.
+
+This improves overall answer quality by reducing noise in the context passed to the LLM and significantly lowering hallucination rates.
+::`
+
+---
+
+# 13. Final intuition
+
+Think of reranking like:
+
+| Stage         | Analogy                              |
+| ------------- | ------------------------------------ |
+| Vector search | Google search results page           |
+| Reranker      | human editor selecting best articles |
+| LLM           | writer using curated sources         |
+
+---
+
+If you want next-level depth, I can explain:
+
+* how cross-encoder rerankers are trained (very important)
+* or how Google / Bing-style search systems combine BM25 + dense + reranking at scale
+* or how to build a production reranking pipeline with latency constraints (senior system design topic)

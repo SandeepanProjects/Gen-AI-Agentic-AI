@@ -1,0 +1,280 @@
+In agentic AI systems, **short-term vs long-term memory** is really about **where information lives, how long it persists, and how it is retrieved for reasoning**.
+
+A senior framing:
+
+> Short-term memory = what the model is currently “thinking about”
+> Long-term memory = what the system “knows about the world/user over time”
+
+---
+
+# 1. Short-term memory (Working memory)
+
+## What it is
+
+Short-term memory is the **current context window of the LLM** plus immediate intermediate state.
+
+It includes:
+
+* conversation history (recent turns)
+* current tool outputs
+* intermediate reasoning steps
+* temporary variables in an agent loop
+
+---
+
+## Key properties
+
+| Property    | Description                   |
+| ----------- | ----------------------------- |
+| Scope       | per-session                   |
+| Persistence | temporary                     |
+| Size        | limited by context window     |
+| Speed       | extremely fast                |
+| Control     | implicit (via prompt/context) |
+
+---
+
+## Example
+
+```text id="s1"
+User: What is RAG?
+Agent: [explains RAG]
+
+User: Now explain it with an example
+```
+
+The previous explanation is part of short-term memory.
+
+---
+
+## Where it lives
+
+* LLM context window
+* agent scratchpad
+* ReAct traces (Thought/Action/Observation)
+
+---
+
+## Strengths
+
+✔ very fast
+✔ always available
+✔ no retrieval step needed
+
+---
+
+## Weaknesses
+
+❌ limited tokens
+❌ gets truncated
+❌ no persistence across sessions
+
+---
+
+# 2. Long-term memory
+
+## What it is
+
+Long-term memory stores **persistent knowledge beyond a single interaction**.
+
+Includes:
+
+* user preferences
+* past conversations
+* facts learned over time
+* task history
+* embeddings of past interactions
+
+---
+
+## Key properties
+
+| Property    | Description             |
+| ----------- | ----------------------- |
+| Scope       | cross-session           |
+| Persistence | long-lived              |
+| Storage     | external systems        |
+| Retrieval   | explicit (search/query) |
+
+---
+
+## Example
+
+```text id="l1"
+User prefers concise technical answers.
+User is working on RAG-based search system.
+User likes Python examples.
+```
+
+---
+
+## Where it lives
+
+* vector databases
+* key-value stores
+* relational databases
+* memory services
+
+---
+
+## Strengths
+
+✔ persistent knowledge
+✔ scalable
+✔ user personalization
+✔ supports long-horizon tasks
+
+---
+
+## Weaknesses
+
+❌ requires retrieval step
+❌ can become stale
+❌ needs filtering/ranking
+
+---
+
+# 3. Core difference
+
+| Feature    | Short-term memory   | Long-term memory    |
+| ---------- | ------------------- | ------------------- |
+| Duration   | transient           | persistent          |
+| Access     | implicit            | explicit retrieval  |
+| Storage    | context window      | external DB         |
+| Latency    | 0 ms                | retrieval cost      |
+| Size limit | small               | large               |
+| Purpose    | reasoning in-flight | knowledge retention |
+
+---
+
+# 4. System architecture view
+
+```text id="a1"
+User Input
+   ↓
+Short-term Memory (context window)
+   ↓
+LLM reasoning
+   ↓
+Memory retrieval (long-term memory)
+   ↓
+Injected context
+   ↓
+LLM output
+   ↓
+Memory update (write-back)
+```
+
+---
+
+# 5. How they work together
+
+In a good agent system:
+
+## Step 1: Short-term memory handles reasoning
+
+* current query
+* immediate tool outputs
+
+## Step 2: Long-term memory provides background
+
+* user preferences
+* past knowledge
+* domain context
+
+---
+
+### Example
+
+User:
+
+> “Explain RAG again”
+
+System:
+
+* Short-term memory: previous explanation of RAG
+* Long-term memory: user prefers simple explanations
+
+Result:
+
+> simplified RAG explanation tailored to user
+
+---
+
+# 6. Memory interaction pattern
+
+\text{Response} = f(\text{short-term context}, \text{retrieved long-term memory})
+
+---
+
+# 7. Key design challenge
+
+The hardest part is not storing memory.
+
+It is:
+
+> deciding what goes into long-term memory vs what stays short-term
+
+---
+
+# 8. Common mistakes in production
+
+## ❌ 1. Overloading long-term memory
+
+* storing every conversation
+* leads to noise
+
+## ❌ 2. No retrieval filtering
+
+* irrelevant memories injected
+
+## ❌ 3. No decay mechanism
+
+* outdated preferences persist
+
+## ❌ 4. Relying only on context window
+
+* no personalization
+
+---
+
+# 9. Production best practice
+
+## Short-term memory:
+
+* keep minimal, relevant context
+* use summarization for long chats
+
+## Long-term memory:
+
+* store only high-value facts
+* use embeddings + metadata filtering
+* apply recency + importance scoring
+
+---
+
+# 10. Senior-level interview answer
+
+Short-term memory in LLM-based agents refers to the in-context information available within the model’s context window, including recent conversation history and intermediate reasoning or tool outputs. It is transient and limited in size but provides immediate reasoning capability.
+
+Long-term memory is an external persistent storage system, typically implemented using vector databases or structured key-value stores, that retains user preferences, historical interactions, and domain knowledge across sessions. It is retrieved dynamically and injected into the context when relevant, enabling personalization and long-horizon reasoning.
+::`
+
+---
+
+# 11. Final intuition
+
+Think of it like:
+
+| Type              | Analogy               |
+| ----------------- | --------------------- |
+| short-term memory | working memory / RAM  |
+| long-term memory  | hard drive / notebook |
+
+---
+
+If you want, I can go deeper into:
+
+* how to design a **production-grade memory system for agents (with retrieval + decay + summarization)**
+* or how ChatGPT-style memory systems work internally
+* or how to avoid memory conflicts in multi-agent systems (very advanced topic)

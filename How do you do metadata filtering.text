@@ -1,0 +1,340 @@
+Metadata filtering is a core part of **production RAG systems** because it turns vector search from “semantic guessing” into **controlled, query-constrained retrieval**.
+
+> In simple terms: metadata filtering narrows the search space before or during vector similarity search.
+
+---
+
+# 1. What is metadata filtering?
+
+Each vector in a database is not just an embedding:
+
+```json id="m1"
+{
+  "id": "chunk_123",
+  "vector": [0.12, -0.98, ...],
+  "text": "Transformer attention mechanism...",
+  "metadata": {
+    "source": "paper",
+    "year": 2023,
+    "domain": "nlp",
+    "access_level": "public"
+  }
+}
+```
+
+Metadata filtering means:
+
+> “Only search vectors that match certain conditions.”
+
+---
+
+# 2. Why metadata filtering is important
+
+Without filtering:
+
+* irrelevant domains mix together
+* wrong document versions get retrieved
+* access control is broken
+* retrieval quality drops
+
+---
+
+# 3. Basic idea
+
+Instead of:
+
+```text id="f1"
+ANN_SEARCH(query_vector)
+```
+
+We do:
+
+```text id="f2"
+ANN_SEARCH(query_vector) WHERE metadata matches condition
+```
+
+---
+
+# 4. Types of metadata filters
+
+---
+
+## 4.1 Equality filters
+
+Exact match:
+
+```text id="f3"
+domain = "finance"
+```
+
+Used for:
+
+* domain separation
+* document type filtering
+
+---
+
+## 4.2 Range filters
+
+Example:
+
+```text id="f4"
+year >= 2022 AND year <= 2026
+```
+
+Used for:
+
+* time-aware retrieval
+* stale document filtering
+
+---
+
+## 4.3 Boolean filters
+
+```text id="f5"
+domain = "ml" AND access = "public"
+```
+
+Used for:
+
+* combining constraints
+
+---
+
+## 4.4 Set-based filters
+
+```text id="f6"
+source IN ["pdf", "web", "wiki"]
+```
+
+---
+
+# 5. Where filtering happens in vector DBs
+
+There are 3 architectures:
+
+---
+
+## (A) Pre-filtering (most common)
+
+Filter first → then vector search:
+
+```text id="a1"
+metadata filter → ANN search
+```
+
+✔ efficient
+✔ reduces search space
+❌ may miss cross-filter interactions
+
+---
+
+## (B) Post-filtering
+
+Vector search first → then filter:
+
+```text id="a2"
+ANN search → filter results
+```
+
+✔ simple
+❌ can degrade recall (filtered out top matches)
+
+---
+
+## (C) Hybrid filtering (best practice)
+
+* pre-filter coarse constraints
+* post-filter fine constraints
+
+---
+
+# 6. Example in RAG system
+
+## Query:
+
+```text id="q1"
+"Explain attention in transformers from 2024 papers"
+```
+
+## Metadata filter:
+
+```text id="q2"
+year >= 2024 AND domain = "nlp"
+```
+
+Then:
+
+* vector search runs only on relevant subset
+
+---
+
+# 7. Hybrid search + metadata filtering
+
+In production systems:
+
+```text id="h1"
+BM25 + Vector Search + Metadata Filters
+```
+
+Flow:
+
+1. filter by metadata
+2. run BM25
+3. run vector search
+4. merge results
+5. rerank
+
+---
+
+# 8. Why metadata filtering improves retrieval quality
+
+It improves:
+
+## (1) Precision
+
+removes irrelevant documents early
+
+## (2) Latency
+
+smaller search space → faster ANN search
+
+## (3) Safety
+
+enforces access control (RBAC/ABAC)
+
+## (4) Freshness
+
+filter outdated embeddings
+
+---
+
+# 9. Metadata filtering in real vector databases
+
+---
+
+## Pinecone
+
+Supports:
+
+* structured metadata filters
+* boolean logic
+* namespace-based isolation
+
+Pinecone
+
+---
+
+## Weaviate
+
+Supports:
+
+* GraphQL-based filtering
+* schema-aware queries
+* hybrid + filter fusion
+
+Weaviate
+
+---
+
+## Milvus
+
+Supports:
+
+* rich scalar filtering
+* partition-based filtering
+
+Milvus
+
+---
+
+# 10. Partitioning vs filtering (important distinction)
+
+## Partitioning (physical separation)
+
+* split data into indexes/shards
+
+## Filtering (logical selection)
+
+* filter within same index
+
+Best systems use both.
+
+---
+
+# 11. Advanced pattern: Filter-aware retrieval
+
+Instead of:
+
+> filter → search
+
+We do:
+
+> search-aware filtering
+
+Meaning:
+
+* vector DB adjusts ANN traversal using metadata constraints
+
+This improves recall under constraints.
+
+---
+
+# 12. Common mistakes
+
+❌ Filtering only after ANN search (bad recall)
+❌ No indexing on metadata fields
+❌ Over-filtering (empty results problem)
+❌ Not combining with reranking
+❌ Ignoring multi-tenant isolation
+
+---
+
+# 13. Production architecture
+
+```text id="p1"
+User Query
+   ↓
+Query parsing → extract filters
+   ↓
+Metadata filter engine
+   ↓
+Vector DB ANN search
+   ↓
+BM25 search (optional)
+   ↓
+Merge results
+   ↓
+Rerank
+   ↓
+LLM
+```
+
+---
+
+# 14. Senior-level interview answer
+
+Metadata filtering in vector databases is a mechanism that constrains vector similarity search using structured attributes such as domain, timestamp, document type, or access control.
+
+In production RAG systems, filtering is applied either before or during ANN search to reduce the candidate space and improve precision, latency, and compliance. It is commonly combined with hybrid search (BM25 + vector search) and reranking to ensure both semantic relevance and constraint satisfaction.
+::`
+
+---
+
+# 15. Final intuition
+
+Think of metadata filtering like:
+
+| Component       | Role              |
+| --------------- | ----------------- |
+| Vector search   | finds meaning     |
+| Metadata filter | enforces rules    |
+| Reranker        | picks best result |
+
+---
+
+If you want, I can go deeper into:
+
+* how metadata filtering is implemented inside HNSW graphs
+* or how multi-tenant RAG systems enforce security at vector level (very senior production topic)
+* or how query parsing extracts filters automatically from natural language (agentic RAG design)

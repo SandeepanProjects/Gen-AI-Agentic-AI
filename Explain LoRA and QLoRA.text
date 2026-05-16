@@ -1,0 +1,323 @@
+# LoRA vs QLoRA — Senior AI Engineer Explanation
+
+LoRA and QLoRA are **parameter-efficient fine-tuning (PEFT)** techniques used to adapt large language models without retraining all parameters.
+
+They solve a key production problem:
+
+> How do you fine-tune a 7B–70B parameter model without massive GPU cost?
+
+---
+
+# 1. LoRA (Low-Rank Adaptation)
+
+## Core Idea
+
+Instead of updating full weight matrices during fine-tuning:
+
+> Freeze the original model and train small low-rank matrices that *approximate the update*.
+
+---
+
+# Standard Fine-Tuning Problem
+
+For a linear layer:
+
+W \in \mathbb{R}^{d \times d}
+
+Full fine-tuning updates:
+
+```text id="lora1"
+W → W + ΔW
+```
+
+But ΔW is large → expensive to train.
+
+---
+
+# LoRA Insight
+
+LoRA decomposes update as:
+
+\Delta W = A B
+
+Where:
+
+* A ∈ ℝ^{d × r}
+* B ∈ ℝ^{r × d}
+* r ≪ d (low rank)
+
+So instead of training full matrix:
+
+* train A and B only
+
+---
+
+# Final LoRA Layer
+
+W' = W + A B
+
+Where:
+
+* W = frozen pretrained weights
+* A, B = trainable adapters
+
+---
+
+# Why LoRA Works
+
+Neural networks are over-parameterized:
+
+> Most task-specific adaptation lies in a low-dimensional subspace.
+
+So:
+
+* full weight updates are unnecessary
+* low-rank update captures most changes
+
+---
+
+# LoRA Benefits
+
+* drastically fewer trainable parameters
+* fast fine-tuning
+* low GPU memory usage
+* easy to switch tasks (multiple adapters)
+* no change to base model
+
+---
+
+# Example
+
+For a 7B model:
+
+* full fine-tuning: billions of parameters
+* LoRA: millions of parameters
+
+Trainable portion becomes tiny.
+
+---
+
+# Where LoRA is Applied
+
+Typically applied to:
+
+* attention matrices (Q, K, V)
+* feed-forward layers
+* sometimes output projections
+
+---
+
+# 2. QLoRA (Quantized LoRA)
+
+## Core Idea
+
+> Combine quantization + LoRA to fine-tune very large models on limited hardware.
+
+QLoRA =
+
+* Quantized base model
+* LoRA adapters trained on top
+
+---
+
+# Key Innovation
+
+Instead of storing model in FP16:
+
+👉 store base model in 4-bit quantized format
+
+while:
+
+* keeping LoRA weights in higher precision
+
+---
+
+# Architecture
+
+```text id="qlora1"
+Base Model (4-bit quantized, frozen)
+        +
+LoRA adapters (trainable)
+```
+
+---
+
+# Why QLoRA Is Powerful
+
+Because it enables:
+
+* fine-tuning 7B–70B models on a single GPU
+* dramatic memory reduction
+* near full fine-tuning performance
+
+---
+
+# Memory Breakdown
+
+| Component    | Precision | Role      |
+| ------------ | --------- | --------- |
+| Base model   | 4-bit     | frozen    |
+| LoRA weights | FP16/BF16 | trainable |
+| Activations  | FP16      | runtime   |
+
+---
+
+# Why 4-bit Quantization Works Here
+
+Even though base model is low precision:
+
+* LoRA adapts behavior on top
+* quantization noise is compensated by adapters
+
+This is a key insight.
+
+---
+
+# QLoRA Pipeline
+
+```text id="qlora2"
+Pretrained LLM
+   ↓
+4-bit quantization (NF4 format)
+   ↓
+Freeze base model
+   ↓
+Inject LoRA adapters
+   ↓
+Fine-tune adapters only
+```
+
+---
+
+# NF4 (Important Detail)
+
+QLoRA uses:
+
+> NormalFloat4 (NF4)
+
+It is designed for:
+
+* better distribution matching
+* better representation of weights than naive int4
+
+Used in:
+
+* bitsandbytes
+
+---
+
+# LoRA vs QLoRA — Key Differences
+
+| Aspect               | LoRA      | QLoRA                    |
+| -------------------- | --------- | ------------------------ |
+| Base model precision | FP16/BF16 | 4-bit quantized          |
+| Memory usage         | Medium    | Very low                 |
+| GPU requirement      | Higher    | Lower                    |
+| Training cost        | Moderate  | Very low                 |
+| Performance          | High      | Near-LoRA / near full FT |
+
+---
+
+# Intuition
+
+## LoRA
+
+> “Freeze model, learn small corrective updates.”
+
+---
+
+## QLoRA
+
+> “Compress model aggressively, then learn corrective adapters.”
+
+---
+
+# Why This Matters in Production
+
+QLoRA enables:
+
+* fine-tuning LLMs on consumer GPUs
+* enterprise customization without huge infra
+* rapid iteration cycles
+* cost-effective model specialization
+
+---
+
+# Where LoRA/QLoRA Are Used
+
+Common in:
+
+* domain adaptation (legal, medical, finance)
+* instruction tuning
+* chat model customization
+* tool-use training
+* agent behavior tuning
+
+---
+
+# Agentic AI Perspective
+
+In agent systems, LoRA helps tune:
+
+* tool calling reliability
+* structured output formats
+* planning behavior
+* multi-step reasoning consistency
+
+QLoRA enables doing this cheaply.
+
+---
+
+# Senior-Level Insight
+
+A strong interview answer:
+
+LoRA freezes pretrained model weights and introduces trainable low-rank matrices that approximate weight updates, significantly reducing the number of parameters required for fine-tuning.
+
+QLoRA extends this idea by quantizing the base model to 4-bit precision while applying LoRA adapters on top, enabling efficient fine-tuning of very large models on limited GPU resources.
+
+LoRA reduces training cost; QLoRA reduces both memory footprint and training cost by combining quantization with parameter-efficient adaptation.
+::`
+
+---
+
+# Common Interview Mistakes
+
+❌ Saying:
+
+> “QLoRA is just LoRA but faster”
+
+❌ Saying:
+
+> “LoRA reduces model size”
+
+Incorrect — LoRA does NOT reduce base model size.
+
+---
+
+# Correct Mental Model
+
+| Technique | What changes                     |
+| --------- | -------------------------------- |
+| LoRA      | adds low-rank update layers      |
+| QLoRA     | quantizes base model + adds LoRA |
+
+---
+
+# Final Intuition
+
+Think of:
+
+| Method | Analogy                                      |
+| ------ | -------------------------------------------- |
+| LoRA   | add “patch notes” to a fixed software system |
+| QLoRA  | run software in compressed form + patch it   |
+
+---
+
+If you want next-level understanding, I can also explain:
+
+* LoRA rank selection (r)
+* where to apply adapters in transformers
+* how QLoRA interacts with KV cache
+* or full fine-tuning vs PEFT decision frameworks for interviews

@@ -1,0 +1,345 @@
+A **coordinator–worker architecture** is one of the most important patterns in **agentic AI systems, distributed LLM workflows, and multi-agent orchestration**.
+
+A senior framing:
+
+> The coordinator decides *what should be done and in what order*, while workers execute *isolated, bounded tasks*.
+
+It’s basically the foundation of scalable multi-agent systems.
+
+---
+
+# 1. Core idea
+
+```text id="c1"
+             ┌───────────────┐
+User Query → │ Coordinator   │
+             └──────┬────────┘
+                    ↓
+     ┌──────────────┼──────────────┐
+     ↓              ↓              ↓
+ Worker A      Worker B      Worker C
+ (task 1)      (task 2)      (task 3)
+     ↓              ↓              ↓
+     └──────────────┼──────────────┘
+                    ↓
+             Aggregator / Coordinator
+                    ↓
+              Final Response
+```
+
+---
+
+# 2. Roles
+
+## 2.1 Coordinator (brain / control plane)
+
+Responsibilities:
+
+* decomposes tasks
+* assigns work to workers
+* enforces constraints (budget, steps, latency)
+* manages dependencies (DAG execution)
+* aggregates results
+* handles retries and failures
+
+Think:
+
+> “Engineering manager + scheduler + policy engine”
+
+---
+
+## 2.2 Workers (execution plane)
+
+Responsibilities:
+
+* execute one well-defined task
+* no global planning
+* limited context
+* stateless or lightly stateful
+
+Examples:
+
+* retrieval worker
+* coding worker
+* tool execution worker
+* summarization worker
+
+Think:
+
+> “specialist microservices or engineers”
+
+---
+
+# 3. Why this architecture exists
+
+Multi-agent systems fail when:
+
+* agents over-plan
+* agents interfere with each other
+* uncontrolled reasoning loops occur
+* cost explodes due to autonomy
+
+Coordinator-worker solves this by:
+
+✔ central control
+✔ bounded execution
+✔ predictable cost
+✔ easier debugging
+
+---
+
+# 4. Execution flow
+
+## Step 1: Task decomposition
+
+Coordinator converts:
+
+> “Build a RAG system”
+
+into:
+
+```text id="t1"
+1. ingest documents
+2. chunk text
+3. generate embeddings
+4. store in vector DB
+5. implement retrieval
+6. build QA pipeline
+```
+
+---
+
+## Step 2: Task assignment
+
+Each worker gets:
+
+* one task
+* minimal context
+* clear input/output contract
+
+---
+
+## Step 3: Parallel execution
+
+Workers run independently:
+
+```text id="p1"
+Worker A → embedding generation
+Worker B → chunking
+Worker C → retrieval setup
+```
+
+---
+
+## Step 4: Aggregation
+
+Coordinator merges outputs into final result.
+
+---
+
+# 5. Key properties
+
+| Property       | Coordinator          | Worker        |
+| -------------- | -------------------- | ------------- |
+| Responsibility | planning + control   | execution     |
+| State          | global               | local         |
+| Autonomy       | high                 | low           |
+| Context        | full system          | task-specific |
+| Risk           | orchestration errors | local errors  |
+
+---
+
+# 6. Design variations
+
+---
+
+## 6.1 Sequential coordinator
+
+* assigns one task at a time
+
+✔ simple
+❌ slow
+
+---
+
+## 6.2 Parallel coordinator
+
+* assigns multiple workers concurrently
+
+✔ fast
+❌ needs synchronization
+
+---
+
+## 6.3 Hierarchical coordination
+
+```text id="h1"
+Top Coordinator
+   ↓
+Sub-coordinator
+   ↓
+Workers
+```
+
+Used in large systems.
+
+---
+
+## 6.4 Event-driven coordination
+
+Workers emit events:
+
+* task completed
+* failure occurred
+* need clarification
+
+Coordinator reacts dynamically.
+
+---
+
+# 7. Failure handling
+
+Coordinator handles:
+
+* retry failed worker
+* reassign task
+* split task further
+* fallback worker model
+* partial aggregation
+
+---
+
+## Example:
+
+If Worker B fails:
+
+```text id="f1"
+Coordinator → detects failure
+           → retries Worker B
+           → or assigns Worker D
+```
+
+---
+
+# 8. Cost control (critical in LLM systems)
+
+Coordinator enforces:
+
+* max worker count
+* max LLM calls per worker
+* token budgets per task
+
+\text{Total Cost} = \sum_{i=1}^{n} C_{worker_i}
+
+---
+
+# 9. Memory model
+
+Two layers:
+
+## 9.1 Coordinator memory (global)
+
+* task graph
+* system state
+* intermediate results
+
+## 9.2 Worker memory (local)
+
+* task-specific context only
+
+---
+
+# 10. When to use coordinator–worker
+
+Best suited for:
+
+* multi-step reasoning pipelines
+* RAG systems
+* coding agents
+* data processing workflows
+* tool-heavy systems
+
+---
+
+# 11. When NOT to use it
+
+Avoid when:
+
+* task is simple single-step
+* latency must be ultra-low
+* no decomposition benefit exists
+
+---
+
+# 12. Comparison with other architectures
+
+| Architecture            | Control  | Flexibility | Debuggability |
+| ----------------------- | -------- | ----------- | ------------- |
+| Coordinator–Worker      | high     | medium      | high          |
+| Event-driven agents     | low      | high        | low           |
+| Fully autonomous agents | very low | very high   | very low      |
+
+---
+
+# 13. Common pitfalls
+
+❌ coordinator becomes bottleneck
+❌ workers too dependent on global state
+❌ poor task decomposition
+❌ no retry strategy
+❌ inconsistent worker interfaces
+❌ uncontrolled parallelism → cost explosion
+
+---
+
+# 14. Production architecture
+
+```text id="a1"
+User Query
+   ↓
+Coordinator (Planner + Router)
+   ↓
+Task Graph Builder
+   ↓
+Worker Pool (parallel execution)
+   ├── Retrieval Worker
+   ├── Code Worker
+   ├── Tool Worker
+   ├── Summarizer Worker
+   ↓
+Result Aggregator
+   ↓
+Validation Layer
+   ↓
+Final Output
+```
+
+---
+
+# 15. Senior-level interview answer
+
+The coordinator–worker architecture is a multi-agent orchestration pattern where a central coordinator decomposes a complex task into smaller subtasks and assigns them to specialized worker agents for execution. The coordinator is responsible for planning, scheduling, dependency management, and result aggregation, while workers execute isolated tasks with limited context and scope.
+
+This separation enables scalability, parallelism, and improved fault isolation, as worker failures can be retried or replaced without affecting the global system. In production LLM systems, this pattern is widely used to control cost, reduce hallucination, and ensure deterministic execution flow in multi-step reasoning pipelines.
+::`
+
+---
+
+# 16. Final intuition
+
+Think of it like:
+
+| Role        | Analogy                 |
+| ----------- | ----------------------- |
+| coordinator | manager / orchestrator  |
+| workers     | engineers / specialists |
+| task graph  | project plan            |
+| aggregation | system integration      |
+
+---
+
+If you want, I can go deeper into:
+
+* how coordinator–worker differs from **ReAct and LangGraph state machines**
+* or how to design a **fault-tolerant coordinator with auto-scaling workers**
+* or how big systems like **GitHub Copilot-style coding agents internally use this pattern**

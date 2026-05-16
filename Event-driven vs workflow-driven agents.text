@@ -1,0 +1,320 @@
+This is a key architectural distinction in production agent systems.
+
+A senior framing:
+
+> **Workflow-driven agents = pre-defined control flow (you decide the graph).**
+> **Event-driven agents = reactive systems (the system decides what runs next).**
+
+Both are used heavily in real-world LLM platforms, often together.
+
+---
+
+# 1. Workflow-driven agents (DAG / pipeline style)
+
+## What it is
+
+You explicitly define a **sequence or graph of steps**.
+
+```text id="w1"
+User → Planner → Retriever → Tool → Writer → Output
+```
+
+Or DAG:
+
+```text
+A → B → C
+  ↘ D ↗
+```
+
+---
+
+## Key idea
+
+> “Execution follows a predefined plan.”
+
+---
+
+## Characteristics
+
+| Property    | Description    |
+| ----------- | -------------- |
+| Control     | static         |
+| Flow        | predefined DAG |
+| Determinism | high           |
+| Debugging   | easy           |
+| Flexibility | low-medium     |
+
+---
+
+## Example
+
+RAG pipeline:
+
+1. chunk docs
+2. embed
+3. retrieve
+4. rerank
+5. generate answer
+
+No runtime decision changes structure.
+
+---
+
+## Strengths
+
+✔ predictable execution
+✔ easy to debug
+✔ cost controlled
+✔ production stable
+
+---
+
+## Weaknesses
+
+❌ not adaptive
+❌ poor for dynamic tasks
+❌ rigid flows
+❌ hard to handle uncertainty
+
+---
+
+# 2. Event-driven agents
+
+## What it is
+
+Agents react to **events**, not fixed workflows.
+
+```text id="e1"
+Event → Agent decides next action
+```
+
+---
+
+## Example events:
+
+* tool completed
+* memory updated
+* retrieval finished
+* error occurred
+* user message received
+
+---
+
+## Key idea
+
+> “Execution is determined at runtime.”
+
+---
+
+## Architecture
+
+```text id="e2"
+Event Bus
+   ↓
+Agent subscribes
+   ↓
+Agent reacts → emits new events
+   ↓
+Other agents react
+```
+
+---
+
+## Characteristics
+
+| Property    | Description |
+| ----------- | ----------- |
+| Control     | dynamic     |
+| Flow        | emergent    |
+| Determinism | low         |
+| Flexibility | very high   |
+| Debugging   | harder      |
+
+---
+
+## Example
+
+Multi-agent research system:
+
+* Retriever finishes → triggers summarizer
+* Summarizer finishes → triggers critic
+* Critic finds issue → triggers re-retrieval
+
+No fixed pipeline exists.
+
+---
+
+## Strengths
+
+✔ highly adaptive
+✔ scalable to complex systems
+✔ good for real-time systems
+✔ supports autonomy
+
+---
+
+## Weaknesses
+
+❌ harder debugging
+❌ risk of infinite loops
+❌ unpredictable cost
+❌ complex orchestration
+
+---
+
+# 3. Core difference (mental model)
+
+| Aspect       | Workflow-driven  | Event-driven     |
+| ------------ | ---------------- | ---------------- |
+| Control      | centralized      | decentralized    |
+| Structure    | DAG              | event graph      |
+| Planning     | before execution | during execution |
+| Adaptability | low              | high             |
+| Stability    | high             | medium-low       |
+
+---
+
+# 4. Execution comparison
+
+## Workflow-driven
+
+```text id="c1"
+Plan → Execute → Done
+```
+
+---
+
+## Event-driven
+
+```text id="c2"
+Event → Action → Event → Action → Event → ...
+```
+
+---
+
+# 5. When to use what
+
+## Use workflow-driven when:
+
+* RAG pipelines
+* document processing
+* batch jobs
+* production QA systems
+* cost-sensitive apps
+
+✔ you want control and predictability
+
+---
+
+## Use event-driven when:
+
+* multi-agent systems
+* autonomous agents
+* real-time systems
+* tool-heavy dynamic workflows
+* interactive assistants
+
+✔ you want flexibility and adaptability
+
+---
+
+# 6. Hybrid systems (real production standard)
+
+Most real systems are **hybrid**:
+
+```text id="h1"
+Workflow (outer structure)
+   ↓
+Event-driven agents (inner loop)
+   ↓
+Workflow resumes
+```
+
+---
+
+## Example hybrid architecture:
+
+1. workflow defines:
+
+   * ingestion → retrieval → generation
+
+2. inside generation step:
+
+   * event-driven agent loop handles:
+
+     * tool calls
+     * retries
+     * reflection
+
+---
+
+# 7. Key production insight
+
+> Workflow controls **macro structure**, event-driven controls **micro behavior**
+
+---
+
+# 8. Failure modes
+
+## Workflow-driven failures
+
+* rigid pipelines
+* inability to handle edge cases
+* overfitting to predefined flows
+
+---
+
+## Event-driven failures
+
+* infinite loops
+* cost explosion
+* hard-to-debug behavior
+* race conditions in agents
+
+---
+
+# 9. Debugging differences
+
+| Type         | Debug strategy                       |
+| ------------ | ------------------------------------ |
+| Workflow     | trace DAG                            |
+| Event-driven | event logs + timeline reconstruction |
+
+---
+
+# 10. System design intuition
+
+Think of it like:
+
+| System          | Analogy             |
+| --------------- | ------------------- |
+| Workflow-driven | assembly line       |
+| Event-driven    | city traffic system |
+
+---
+
+# 11. Senior-level interview answer
+
+Workflow-driven agents operate using predefined execution graphs (DAGs or pipelines) where the sequence of operations is explicitly defined before runtime. This approach provides determinism, easier debugging, and predictable cost but lacks flexibility for dynamic decision-making.
+
+Event-driven agents, in contrast, operate through a reactive architecture where agents respond to events emitted by the system or other agents. This enables highly adaptive and autonomous behavior but introduces challenges in debugging, control, and cost predictability.
+
+Production systems often combine both approaches, using workflow-driven structures for high-level orchestration and event-driven mechanisms for fine-grained agent interactions.
+::`
+
+---
+
+# 12. Final intuition
+
+| Question                | Answer          |
+| ----------------------- | --------------- |
+| “What runs next?”       | Workflow-driven |
+| “What should I do now?” | Event-driven    |
+
+---
+
+If you want, I can go deeper into:
+
+* how **LangGraph blends both models (state machine + event triggers)**
+* or how to design a **production-grade event-driven agent system with guarantees (no infinite loops + bounded cost)**
+* or how big systems like ChatGPT-style orchestration likely combine both patterns internally**

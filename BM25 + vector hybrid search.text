@@ -1,0 +1,319 @@
+# BM25 + Vector Hybrid Search — Senior AI Engineer Explanation
+
+Hybrid search combines:
+
+> **keyword-based retrieval (BM25)** + **semantic retrieval (vector embeddings)**
+
+to get the best of both worlds in RAG and search systems.
+
+---
+
+# 1. Why Hybrid Search is Needed
+
+## Problem with only vector search
+
+Vector search is good at meaning, but weak at:
+
+* exact keyword matches
+* rare terms (IDs, error codes, names)
+* precise constraints
+
+Example:
+
+```text id="h1"
+Query: "CUDA error 0x80070005 fix"
+```
+
+Vector search may miss the exact error code relevance.
+
+---
+
+## Problem with only BM25
+
+BM25 is good at keywords, but weak at:
+
+* paraphrases
+* semantic similarity
+* conceptual queries
+
+Example:
+
+```text id="h2"
+Query: "How does KV caching improve inference speed?"
+```
+
+BM25 may miss relevant conceptual documents.
+
+---
+
+# 2. BM25 + Vector = Hybrid Retrieval
+
+> Combine lexical matching + semantic similarity.
+
+---
+
+# 3. BM25 (Keyword Search)
+
+## What it does
+
+BM25 ranks documents based on term frequency + rarity.
+
+---
+
+## Intuition
+
+A document is relevant if it contains:
+
+* query terms
+* rare terms (high IDF)
+
+---
+
+## Formula intuition
+
+\mathrm{BM25}(q,d) = \sum_{t \in q} IDF(t) \cdot \frac{f(t,d)(k+1)}{f(t,d)+k(1-b+b\cdot|d|/avgdl)}
+
+Where:
+
+* f(t,d) = term frequency
+* IDF = inverse document frequency
+
+---
+
+## Strengths
+
+* exact match precision
+* handles rare tokens well
+* fast inverted index search
+
+---
+
+## Weaknesses
+
+* no semantic understanding
+* fails on paraphrases
+
+---
+
+# 4. Vector Search (Dense Retrieval)
+
+## What it does
+
+Represents text as embeddings:
+
+x \in \mathbb{R}^d
+
+Then retrieves based on similarity:
+
+\mathrm{sim}(q,x)=\cos(\theta)
+
+---
+
+## Strengths
+
+* semantic understanding
+* paraphrase robustness
+* conceptual retrieval
+
+---
+
+## Weaknesses
+
+* weak on exact matches
+* struggles with rare tokens
+* can retrieve “semantically similar but irrelevant” chunks
+
+---
+
+# 5. Hybrid Search (Core Idea)
+
+We combine both scores:
+
+\mathrm{score}(d) = \alpha \cdot \mathrm{BM25}(q,d) + (1-\alpha) \cdot \mathrm{vector}(q,d)
+
+Where:
+
+* α controls weighting
+
+---
+
+# 6. Two main hybrid strategies
+
+---
+
+## (A) Score Fusion (Weighted Sum)
+
+Steps:
+
+1. run BM25 → top N1
+2. run vector search → top N2
+3. merge results
+4. normalize scores
+5. compute weighted sum
+
+### Pros:
+
+* simple
+* effective
+
+### Cons:
+
+* score calibration is tricky
+
+---
+
+## (B) Rank Fusion (RRF — Reciprocal Rank Fusion)
+
+Instead of scores, use ranks:
+
+\mathrm{RRF}(d) = \sum \frac{1}{k + \mathrm{rank}(d)}
+
+### Pros:
+
+* no need for score normalization
+* very robust in production
+
+### Cons:
+
+* slightly less interpretable
+
+---
+
+# 7. Production Architecture
+
+```text id="p1"
+User Query
+   ↓
+┌───────────────┬────────────────┐
+│   BM25        │  Vector Search │
+│ (inverted idx)│ (ANN index)    │
+└───────────────┴────────────────┘
+          ↓
+     Merge Results
+          ↓
+     (optional reranker)
+          ↓
+      Top-k docs
+          ↓
+          LLM
+```
+
+---
+
+# 8. Why Hybrid Search works so well
+
+Because it covers two failure modes:
+
+| Method | Strength          |
+| ------ | ----------------- |
+| BM25   | exact matching    |
+| Vector | semantic matching |
+
+So hybrid search = **complementary coverage**
+
+---
+
+# 9. Example
+
+## Query:
+
+```text id="h3"
+"fix null pointer exception in Java hashmap"
+```
+
+### BM25 retrieves:
+
+* documents containing “null pointer exception”
+* “HashMap Java bug”
+
+### Vector search retrieves:
+
+* “Java map error handling”
+* “Null reference issues in collections”
+
+### Combined:
+
+* correct debugging docs appear in top-k
+
+---
+
+# 10. Where hybrid search is used
+
+* enterprise search engines
+* RAG systems (ChatGPT-style apps)
+* legal / medical QA systems
+* code search (GitHub-like systems)
+
+---
+
+# 11. Implementation approaches
+
+## (1) Elasticsearch / OpenSearch hybrid
+
+* built-in BM25
+* vector plugin support
+
+---
+
+## (2) Dedicated vector DB + BM25 engine
+
+* vector DB: Pinecone / Weaviate / Milvus
+* BM25: Elasticsearch
+
+---
+
+## (3) Single system (modern trend)
+
+Some systems support both:
+
+* Weaviate (native hybrid search)
+* Pinecone (hybrid search support)
+
+---
+
+# 12. Key tuning parameter
+
+## α (alpha blending factor)
+
+* α = 1 → pure BM25
+* α = 0 → pure vector search
+* α = 0.3–0.7 → balanced (typical)
+
+---
+
+# 13. Common mistakes
+
+❌ Using only vector search
+❌ Not normalizing BM25 and vector scores
+❌ Skipping reranking after hybrid retrieval
+❌ Not tuning α
+❌ Using hybrid search without evaluation
+
+---
+
+# 14. Senior-level insight
+
+Hybrid search combines lexical retrieval (BM25) and semantic retrieval (dense embeddings) to address the complementary weaknesses of each approach. BM25 provides strong exact-match and rare-term handling, while vector search enables semantic generalization and paraphrase robustness.
+
+In production RAG systems, hybrid retrieval is typically followed by reranking to refine precision, and its performance is highly sensitive to score normalization and fusion strategy (weighted sum or rank-based fusion).
+::`
+
+---
+
+# 15. Final intuition
+
+Think of hybrid search like:
+
+| Component     | Role              |
+| ------------- | ----------------- |
+| BM25          | keyword detective |
+| Vector search | semantic thinker  |
+| Reranker      | final judge       |
+
+---
+
+If you want, I can go deeper into:
+
+* how Elasticsearch implements BM25 internally
+* how RRF is used in Google/Bing-style systems
+* or how to build a full production hybrid RAG pipeline with reranking + caching + evaluation (very senior system design topic)

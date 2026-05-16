@@ -1,0 +1,378 @@
+# Tool-Using Agents — Senior AI Engineer Explanation
+
+Tool-using agents are LLM systems that can **interact with external systems** (APIs, databases, search engines, code runners) instead of relying only on internal knowledge.
+
+> The key idea: the model is no longer just a generator — it becomes a **controller that orchestrates tools**.
+
+---
+
+# 1. What is a tool-using agent?
+
+A tool-using agent is an LLM wrapped with:
+
+* Tool registry (available capabilities)
+* Tool selection logic
+* Execution loop
+* Observation feedback
+
+---
+
+## Core loop
+
+\text{Agent} = \text{Perceive} \rightarrow \text{Select Tool} \rightarrow \text{Act} \rightarrow \text{Observe}
+
+---
+
+# 2. What is a “tool”?
+
+A tool is any external function:
+
+* Search API (web retrieval)
+* Vector DB query (RAG)
+* Calculator
+* SQL database
+* Python interpreter
+* CRM / SaaS APIs
+* Code execution environment
+
+---
+
+# 3. How agents decide which tool to call
+
+This is the most important part.
+
+There are **4 main mechanisms used in production systems**:
+
+---
+
+# 3.1 Implicit selection (LLM decides via prompting)
+
+## How it works:
+
+The model is given:
+
+* tool descriptions
+* usage examples
+
+Then it decides based on reasoning.
+
+---
+
+### Example prompt:
+
+```text id="t1"
+Tools:
+1. search(query): web search
+2. calculator(expression)
+3. db_query(sql)
+
+User: What is 25% of 480?
+```
+
+LLM responds:
+
+```json
+{ "tool": "calculator", "input": "0.25 * 480" }
+```
+
+---
+
+## Pros:
+
+✔ flexible
+✔ simple to implement
+
+## Cons:
+
+❌ hallucinated tool calls
+❌ inconsistent decisions
+❌ prompt-sensitive
+
+---
+
+# 3.2 Function calling (structured tool selection)
+
+Modern production approach (OpenAI-style).
+
+The model outputs **strict schema**:
+
+```json id="t2"
+{
+  "name": "search",
+  "arguments": {
+    "query": "RAG architecture"
+  }
+}
+```
+
+---
+
+## Why this works better:
+
+* constrained outputs
+* less hallucination
+* easier parsing
+* deterministic execution
+
+---
+
+# 3.3 Tool routing model (classifier before LLM)
+
+Instead of letting LLM decide, we use a **separate router model**:
+
+```text id="t3"
+User Query
+   ↓
+Tool Classifier (small model)
+   ↓
+Selected tool
+   ↓
+Executor LLM
+```
+
+---
+
+## Example routing:
+
+| Query type        | Tool             |
+| ----------------- | ---------------- |
+| math question     | calculator       |
+| factual question  | search           |
+| document question | vector DB        |
+| coding task       | code interpreter |
+
+---
+
+## Pros:
+
+✔ fast
+✔ deterministic
+✔ scalable
+
+## Cons:
+
+❌ less flexible
+❌ needs training/data
+
+---
+
+# 3.4 ReAct-style dynamic selection
+
+Agent decides step-by-step:
+
+```text id="t4"
+Thought: I should search for this
+Action: Search[HNSW indexing]
+Observation: ...
+Thought: now I should calculate ...
+```
+
+---
+
+## Pros:
+
+✔ adaptive
+✔ good for multi-step tasks
+
+## Cons:
+
+❌ slow
+❌ expensive
+❌ unpredictable
+
+---
+
+# 4. Hybrid approach (used in production)
+
+Most real systems combine:
+
+### Step 1: Router (fast decision)
+
+### Step 2: LLM tool execution
+
+### Step 3: Optional reflection
+
+---
+
+## Architecture
+
+```text id="h1"
+User Query
+   ↓
+Tool Router (classifier / rules / small model)
+   ↓
+Selected tool(s)
+   ↓
+LLM execution + reasoning
+   ↓
+Tool outputs (observations)
+   ↓
+Final response
+```
+
+---
+
+# 5. How tool selection actually works internally
+
+At a deeper level, LLMs learn:
+
+## Pattern matching:
+
+* question type → tool type
+
+## Semantic alignment:
+
+* embeddings of query vs tool descriptions
+
+## Instruction conditioning:
+
+* system prompt strongly biases selection
+
+---
+
+## Example reasoning pattern:
+
+Query:
+
+> "What is the latest NVIDIA stock price?"
+
+Model inference:
+
+* requires real-time data
+* stock API available
+  → select `stock_price()` tool
+
+---
+
+# 6. Tool scoring approach (advanced systems)
+
+Some systems compute:
+
+\mathrm{score}(tool_i) = f(\text{query}, \text{tool description}_i)
+
+Then choose:
+
+* argmax tool
+
+---
+
+# 7. Multi-tool selection (important)
+
+Advanced agents may call multiple tools:
+
+Example:
+
+```text id="m1"
+1. search() → get facts
+2. calculator() → compute
+3. db_query() → validate
+```
+
+---
+
+# 8. Tool registry design (production view)
+
+Tools are stored as metadata:
+
+```json id="m2"
+{
+  "name": "vector_search",
+  "description": "Search internal documents",
+  "input_schema": {...},
+  "latency": "fast",
+  "cost": "low"
+}
+```
+
+Agent uses:
+
+* description
+* examples
+* schema
+
+---
+
+# 9. Common failure modes
+
+## ❌ 1. Wrong tool selection
+
+* hallucinated API usage
+
+## ❌ 2. Over-tooling
+
+* using tools unnecessarily
+
+## ❌ 3. Under-tooling
+
+* answering from memory instead of calling tools
+
+## ❌ 4. Tool confusion
+
+* similar tools (search vs vector search)
+
+---
+
+# 10. How production systems fix this
+
+## (1) Tool grounding via schemas
+
+Strict function signatures
+
+## (2) Tool descriptions optimized for LLMs
+
+Not human-readable — LLM-readable
+
+## (3) Tool selection logging + training
+
+Improve router over time
+
+## (4) Cost-aware routing
+
+Cheap tools first, expensive tools later
+
+---
+
+# 11. Example real-world agent flow
+
+Query:
+
+> "Compare Tesla vs BYD revenue and explain trends"
+
+Agent:
+
+```text id="r1"
+1. vector_search(Tesla docs)
+2. vector_search(BYD docs)
+3. financial_api(query)
+4. LLM synthesis
+```
+
+---
+
+# 12. Senior-level interview answer
+
+Tool-using agents are LLM-based systems that extend reasoning capabilities by interacting with external tools such as APIs, databases, and search engines. Tool selection is typically performed using one of four approaches: implicit selection via prompting, structured function calling, dedicated tool routing models, or ReAct-style iterative decision-making.
+
+In production systems, tool routing is often handled using a hybrid approach where a lightweight classifier selects candidate tools based on query intent, followed by structured function calling for execution. This ensures both low latency and high reliability while minimizing hallucinated tool usage.
+::`
+
+---
+
+# 13. Final intuition
+
+Think of tool-using agents like:
+
+| Component | Analogy         |
+| --------- | --------------- |
+| LLM       | brain           |
+| tools     | hands           |
+| router    | decision system |
+| executor  | action system   |
+
+---
+
+If you want, I can go deeper into:
+
+* how OpenAI-style function calling works internally
+* or how to design a **production tool router (fast + scalable + cost-aware)**
+* or how multi-tool agents coordinate in complex workflows (very senior agent architecture topic)

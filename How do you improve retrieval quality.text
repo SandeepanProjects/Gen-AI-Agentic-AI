@@ -1,0 +1,337 @@
+Improving retrieval quality is one of the **most important levers in production RAG systems**—often more impactful than changing the LLM itself.
+
+A senior framing is:
+
+> **Retrieval quality = correct context + high precision + minimal noise under a token budget**
+
+If retrieval is weak, the LLM will hallucinate even if it’s very powerful.
+
+---
+
+# 1. Improve the “Data Layer” (Most Important)
+
+## a) Better chunking (huge impact)
+
+Bad chunking = bad retrieval no matter what.
+
+Key improvements:
+
+* semantic or structure-aware chunking
+* optimal chunk size (200–800 tokens typical)
+* overlap (10–20%)
+
+\text{chunk size} = 200 \sim 800 \text{ tokens}
+
+---
+
+## b) Clean data before embedding
+
+Remove:
+
+* boilerplate text
+* navigation menus
+* duplicates
+* corrupted encoding
+
+Why:
+
+> embeddings amplify noise if input is noisy
+
+---
+
+## c) Preserve structure
+
+Add metadata:
+
+* section headers
+* document hierarchy
+* page numbers
+* source type
+
+This improves filtering + ranking.
+
+---
+
+# 2. Improve Embedding Quality (Semantic Layer)
+
+## a) Use better embedding models
+
+Examples:
+
+* OpenAI embeddings (strong general)
+* BGE / E5 (strong open-source retrieval)
+
+Better embeddings → better semantic clustering.
+
+---
+
+## b) Domain-specific embeddings
+
+Use specialized models for:
+
+* legal
+* medical
+* code
+
+Why:
+
+> general embeddings fail on domain-specific semantics
+
+---
+
+## c) Query-document alignment (important insight)
+
+Models like E5 are trained as:
+
+```text id="q1"
+query: ...
+passage: ...
+```
+
+This improves retrieval matching quality significantly.
+
+---
+
+# 3. Improve Retrieval Strategy
+
+## a) Hybrid search (VERY IMPORTANT)
+
+Combine:
+
+* dense retrieval (embeddings)
+* sparse retrieval (BM25 keyword search)
+
+Why:
+
+* embeddings miss exact keywords
+* BM25 misses semantic similarity
+
+---
+
+## b) Increase recall with top-k tuning
+
+k \uparrow \Rightarrow \text{recall} \uparrow, \text{precision} \downarrow
+
+Typical:
+
+* k = 10–50 before reranking
+
+---
+
+## c) Query rewriting (huge improvement)
+
+Transform user query into better search queries:
+
+Example:
+
+```text id="q2"
+User: "how does caching work?"
+Rewritten: "KV cache in transformers, inference optimization, memory caching in LLMs"
+```
+
+---
+
+## d) Multi-query retrieval
+
+Generate multiple versions of query:
+
+* semantic expansion
+* synonyms
+* sub-questions
+
+Then merge results.
+
+---
+
+# 4. Add Reranking (Critical in Production)
+
+## Why reranking matters
+
+First-stage retrieval is **fast but noisy**.
+
+So we rerank using:
+
+* cross-encoders
+* small LLMs
+* transformer rerankers
+
+---
+
+## Effect
+
+| Stage     | Goal           |
+| --------- | -------------- |
+| Retrieval | high recall    |
+| Reranking | high precision |
+
+---
+
+## Result
+
+→ significantly improves answer grounding
+
+---
+
+# 5. Improve Vector Indexing (ANN tuning)
+
+If using HNSW:
+
+* increase `efSearch` → better recall
+* tune `M` → better graph connectivity
+
+\text{higher efSearch} \Rightarrow \text{higher recall}
+
+Tradeoff:
+
+* higher latency
+
+---
+
+# 6. Context Optimization (Post-Retrieval)
+
+## a) Deduplication
+
+Remove similar chunks.
+
+---
+
+## b) Context compression
+
+Summarize retrieved chunks before sending to LLM.
+
+---
+
+## c) Token budgeting
+
+Prioritize best chunks under context limit.
+
+---
+
+# 7. Improve Query Understanding
+
+## a) Intent classification
+
+Detect:
+
+* factual query
+* multi-hop query
+* code query
+* summarization query
+
+---
+
+## b) Routing strategies
+
+Different pipelines for different queries:
+
+* QA → vector search
+* keyword → hybrid search
+* multi-hop → iterative retrieval
+
+---
+
+# 8. Multi-hop / iterative retrieval (advanced)
+
+Instead of one retrieval step:
+
+```text id="r1"
+Query → Retrieve → Refine Query → Retrieve Again
+```
+
+Useful for:
+
+* complex reasoning
+* long documents
+* multi-document QA
+
+---
+
+# 9. Graph-based retrieval (advanced systems)
+
+Instead of flat vectors:
+
+* use entity relationships
+* knowledge graphs
+
+Improves:
+
+* reasoning chains
+* factual consistency
+
+---
+
+# 10. Feedback loop (production-grade systems)
+
+Improve retrieval over time using:
+
+* user feedback
+* click logs
+* correction signals
+
+This enables:
+
+> continuous improvement of embeddings + ranking models
+
+---
+
+# 11. Evaluation metrics (VERY important)
+
+You must measure retrieval quality using:
+
+## Core metrics:
+
+* Recall@k
+* Precision@k
+* MRR (Mean Reciprocal Rank)
+* nDCG
+
+---
+
+## Example intuition:
+
+\text{Recall@k} = \frac{\text{relevant retrieved}}{\text{total relevant}}
+
+---
+
+# 12. Common mistakes (interview traps)
+
+❌ Using only embeddings without reranking
+❌ Ignoring chunking strategy
+❌ No hybrid search
+❌ Fixed k without tuning
+❌ No query rewriting
+❌ No evaluation loop
+
+---
+
+# 13. Senior-level interview answer
+
+A strong answer:
+
+Retrieval quality in RAG systems is improved by optimizing multiple layers of the pipeline, including data preprocessing, chunking strategy, embedding model selection, and retrieval algorithms.
+
+Key techniques include semantic or structure-aware chunking, high-quality embedding models, hybrid search combining dense and sparse methods, query rewriting, and reranking using cross-encoders.
+
+In production systems, reranking and query optimization often provide larger gains than simply improving the embedding model, and retrieval performance is continuously monitored using metrics like Recall@k and MRR.
+::`
+
+---
+
+# 14. Final intuition
+
+Think of retrieval like:
+
+| Component       | Role                    |
+| --------------- | ----------------------- |
+| Chunking        | how knowledge is stored |
+| Embeddings      | semantic representation |
+| Vector DB       | search engine           |
+| Reranker        | quality filter          |
+| Query rewriting | query enhancer          |
+
+---
+
+If you want next-level depth, I can explain:
+
+* how rerankers (cross-encoders) actually work internally
+* or how Google-style retrieval systems combine BM25 + dense + graph retrieval in production-scale search engines
