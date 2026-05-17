@@ -1,0 +1,867 @@
+# Production-Level Vector Similarity Search
+
+A real production vector similarity search system is NOT just:
+
+```python
+SELECT * ORDER BY embedding <=> query_vector
+```
+
+Senior-level systems optimize for:
+
+* latency
+* recall
+* throughput
+* scalability
+* filtering
+* caching
+* distributed retrieval
+* ANN indexing
+* reranking
+* observability
+
+---
+
+# Production Retrieval Architecture
+
+```text id="y28eea"
+User Query
+    ↓
+Embedding Generation
+    ↓
+Query Cache
+    ↓
+ANN Vector Search
+    ↓
+Metadata Filtering
+    ↓
+Hybrid Search (BM25 + Dense)
+    ↓
+Reranking
+    ↓
+Context Compression
+    ↓
+LLM
+```
+
+---
+
+# PRODUCTION IMPLEMENTATION
+
+# 1. DATABASE SCHEMA
+
+## Problem with Simple Schema
+
+Naive schema:
+
+```sql id="z4m06u"
+id | content | embedding
+```
+
+Missing:
+
+* tenant isolation
+* metadata filtering
+* timestamps
+* permissions
+* hybrid search support
+
+---
+
+# Production Schema
+
+## scripts/create_tables.sql
+
+```sql id="98x0pf"
+CREATE EXTENSION IF NOT EXISTS vector;
+
+CREATE TABLE document_chunks (
+    id BIGSERIAL PRIMARY KEY,
+
+    tenant_id UUID NOT NULL,
+
+    document_id UUID NOT NULL,
+
+    document_name TEXT NOT NULL,
+
+    chunk_index INT NOT NULL,
+
+    content TEXT NOT NULL,
+
+    metadata JSONB DEFAULT '{}',
+
+    embedding VECTOR(1536),
+
+    created_at TIMESTAMP DEFAULT NOW(),
+
+    updated_at TIMESTAMP DEFAULT NOW()
+);
+
+-- =====================================================
+-- HNSW INDEX
+-- =====================================================
+
+CREATE INDEX idx_embedding_hnsw
+ON document_chunks
+USING hnsw (embedding vector_cosine_ops);
+
+-- =====================================================
+-- METADATA INDEXES
+-- =====================================================
+
+CREATE INDEX idx_tenant
+ON document_chunks (tenant_id);
+
+CREATE INDEX idx_document
+ON document_chunks (document_id);
+
+CREATE INDEX idx_metadata
+ON document_chunks
+USING gin(metadata);
+
+-- =====================================================
+-- FULL TEXT SEARCH
+-- =====================================================
+
+ALTER TABLE document_chunks
+ADD COLUMN content_tsv tsvector
+GENERATED ALWAYS AS (
+    to_tsvector('english', content)
+) STORED;
+
+CREATE INDEX idx_fts
+ON document_chunks
+USING gin(content_tsv);
+```
+
+---
+
+# Why This Matters
+
+## HNSW
+
+Fast ANN retrieval.
+
+---
+
+## JSONB Metadata
+
+Enables:
+
+```text id="jlwm6q"
+Finance docs only
+HR docs only
+2026 documents only
+```
+
+---
+
+## Tenant Isolation
+
+Critical for enterprise SaaS.
+
+Prevents:
+
+```text id="76bduj"
+cross-customer data leakage
+```
+
+---
+
+# 2. EMBEDDING SERVICE
+
+## Production Problems
+
+Naive embedding generation:
+
+```python
+embedding(text)
+```
+
+Problems:
+
+* repeated API calls
+* high cost
+* slow throughput
+
+---
+
+# Production Embedding Service
+
+## app/embeddings/embedding_service.py
+
+```python id="hbyndd"
+import hashlib
+import json
+
+from openai import OpenAI
+
+from app.core.config import settings
+from app.db.redis_client import redis_client
+
+
+client = OpenAI(
+    api_key=settings.OPENAI_API_KEY,
+)
+
+
+class EmbeddingService:
+    def __init__(self):
+        self.model = settings.EMBEDDING_MODEL
+
+    def _cache_key(self, text: str):
+        return hashlib.md5(text.encode()).hexdigest()
+
+    def create_embedding(self, text: str):
+        """
+        Production embedding generation
+        with Redis caching.
+        """
+
+        cache_key = self._cache_key(text)
+
+        cached = redis_client.get(cache_key)
+
+        if cached:
+            return json.loads(cached)
+
+        response = client.embeddings.create(
+            model=self.model,
+            input=text,
+        )
+
+        embedding = response.data[0].embedding
+
+        redis_client.setex(
+            cache_key,
+            86400,
+            json.dumps(embedding),
+        )
+
+        return embedding
+
+    def batch_create_embeddings(
+        self,
+        texts: list[str],
+    ):
+        """
+        Batch embeddings for throughput optimization.
+        """
+
+        response = client.embeddings.create(
+            model=self.model,
+            input=texts,
+        )
+
+        return [
+            item.embedding
+            for item in response.data
+        ]
+```
+
+---
+
+# Why Batch Embeddings Matter
+
+Naive:
+
+```text id="b61lnh"
+1000 chunks
+→ 1000 API calls
+```
+
+Production:
+
+```text id="6k9d7m"
+1000 chunks
+→ 10 batched calls
+```
+
+Massive latency reduction.
+
+---
+
+# 3. VECTOR STORE
+
+# Production-Level Insertions
+
+## app/db/vector_store.py
+
+```python id="sl0iq9"
+from sqlalchemy import text
+
+from app.db.postgres import engine
+
+
+class VectorStore:
+    def bulk_insert_chunks(
+        self,
+        chunks,
+    ):
+        """
+        Bulk insertion for production ingestion.
+        """
+
+        sql = text(
+            """
+            INSERT INTO document_chunks (
+                tenant_id,
+                document_id,
+                document_name,
+                chunk_index,
+                content,
+                metadata,
+                embedding
+            )
+            VALUES (
+                :tenant_id,
+                :document_id,
+                :document_name,
+                :chunk_index,
+                :content,
+                :metadata,
+                :embedding
+            )
+            """
+        )
+
+        with engine.begin() as conn:
+            conn.execute(sql, chunks)
+```
+
+---
+
+# Why Bulk Inserts Matter
+
+Naive:
+
+```text id="lprk0s"
+1 DB insert per chunk
+```
+
+Production:
+
+```text id="rr2g49"
+single bulk transaction
+```
+
+Much faster.
+
+---
+
+# 4. PRODUCTION VECTOR SEARCH
+
+## app/retrieval/retriever.py
+
+```python id="mzg8jc"
+from sqlalchemy import text
+
+from app.db.postgres import engine
+from app.embeddings.embedding_service import (
+    EmbeddingService,
+)
+
+
+class Retriever:
+    def __init__(self):
+        self.embedding_service = EmbeddingService()
+
+    def retrieve(
+        self,
+        query: str,
+        tenant_id: str,
+        top_k: int = 10,
+        similarity_threshold: float = 0.75,
+        metadata_filters: dict | None = None,
+    ):
+        """
+        Production-grade vector retrieval.
+        """
+
+        query_embedding = (
+            self.embedding_service
+            .create_embedding(query)
+        )
+
+        filter_clauses = [
+            "tenant_id = :tenant_id"
+        ]
+
+        params = {
+            "embedding": query_embedding,
+            "tenant_id": tenant_id,
+            "top_k": top_k,
+            "threshold": similarity_threshold,
+        }
+
+        if metadata_filters:
+            for key, value in metadata_filters.items():
+                clause = (
+                    f\"metadata->>'{key}' = :{key}\"
+                )
+
+                filter_clauses.append(clause)
+
+                params[key] = value
+
+        where_clause = " AND ".join(
+            filter_clauses
+        )
+
+        sql = text(
+            f"""
+            SELECT
+                id,
+                document_name,
+                chunk_index,
+                content,
+                metadata,
+                1 - (
+                    embedding <=> :embedding
+                ) AS similarity_score
+
+            FROM document_chunks
+
+            WHERE
+                {where_clause}
+
+            AND
+                1 - (
+                    embedding <=> :embedding
+                ) > :threshold
+
+            ORDER BY embedding <=> :embedding
+
+            LIMIT :top_k
+            """
+        )
+
+        with engine.begin() as conn:
+            rows = conn.execute(
+                sql,
+                params,
+            ).fetchall()
+
+        return [
+            {
+                "id": row[0],
+                "document_name": row[1],
+                "chunk_index": row[2],
+                "content": row[3],
+                "metadata": row[4],
+                "similarity_score": row[5],
+            }
+            for row in rows
+        ]
+```
+
+---
+
+# What Makes This Production-Grade?
+
+# Tenant Isolation
+
+```sql id="og0v6g"
+tenant_id = :tenant_id
+```
+
+Prevents enterprise data leakage.
+
+---
+
+# Similarity Threshold
+
+Avoids irrelevant chunks.
+
+Without threshold:
+
+```text id="x6s2oo"
+garbage retrieval
+→ hallucinations
+```
+
+---
+
+# Metadata Filtering
+
+Supports:
+
+```python id="d5f6gr"
+metadata_filters={
+    "department": "finance"
+}
+```
+
+---
+
+# ANN Search
+
+Uses HNSW automatically.
+
+Fast retrieval even for:
+
+```text id="4duw6l"
+100M+ vectors
+```
+
+---
+
+# 5. HYBRID SEARCH
+
+Production systems combine:
+
+* dense retrieval
+* keyword retrieval
+
+because embeddings alone miss exact keywords.
+
+---
+
+# Example
+
+Query:
+
+```text id="u0tlyw"
+Error code 0x887A0006
+```
+
+Dense retrieval may fail.
+
+BM25 keyword search works better.
+
+---
+
+# Production Hybrid Search
+
+## app/retrieval/hybrid_search.py
+
+```python id="lsj6ur"
+from sqlalchemy import text
+
+from app.db.postgres import engine
+
+
+class HybridSearch:
+    def hybrid_retrieve(
+        self,
+        query_embedding,
+        query_text,
+        top_k=10,
+    ):
+        """
+        Combines:
+        - vector similarity
+        - BM25 full-text search
+        """
+
+        sql = text(
+            """
+            WITH semantic_search AS (
+                SELECT
+                    id,
+                    content,
+                    1 - (
+                        embedding <=> :embedding
+                    ) AS semantic_score
+                FROM document_chunks
+                ORDER BY embedding <=> :embedding
+                LIMIT 20
+            ),
+
+            keyword_search AS (
+                SELECT
+                    id,
+                    content,
+                    ts_rank(
+                        content_tsv,
+                        plainto_tsquery(:query)
+                    ) AS keyword_score
+                FROM document_chunks
+                WHERE content_tsv @@ plainto_tsquery(:query)
+                LIMIT 20
+            )
+
+            SELECT
+                COALESCE(
+                    s.id,
+                    k.id
+                ) AS id,
+
+                COALESCE(
+                    s.content,
+                    k.content
+                ) AS content,
+
+                COALESCE(
+                    semantic_score,
+                    0
+                ) +
+
+                COALESCE(
+                    keyword_score,
+                    0
+                ) AS combined_score
+
+            FROM semantic_search s
+
+            FULL OUTER JOIN keyword_search k
+            ON s.id = k.id
+
+            ORDER BY combined_score DESC
+
+            LIMIT :top_k
+            """
+        )
+
+        with engine.begin() as conn:
+            rows = conn.execute(
+                sql,
+                {
+                    "embedding": query_embedding,
+                    "query": query_text,
+                    "top_k": top_k,
+                },
+            ).fetchall()
+
+        return rows
+```
+
+---
+
+# Why Hybrid Search Matters
+
+Dense search good for:
+
+```text id="ghofri"
+semantic meaning
+```
+
+BM25 good for:
+
+```text id="jjyutw"
+exact keywords
+error codes
+IDs
+technical strings
+```
+
+Combining both improves recall.
+
+---
+
+# 6. RERANKING
+
+# Why Retrieval Alone Is Insufficient
+
+Initial retrieval may return:
+
+```text id="9q5c8x"
+related chunks
+but not best chunks
+```
+
+Reranker improves ordering.
+
+---
+
+# Production Reranker
+
+## app/retrieval/reranker.py
+
+```python id="m0gdn7"
+from sentence_transformers import CrossEncoder
+
+
+class Reranker:
+    def __init__(self):
+        self.model = CrossEncoder(
+            "cross-encoder/ms-marco-MiniLM-L-6-v2"
+        )
+
+    def rerank(
+        self,
+        query,
+        retrieved_docs,
+        top_k=5,
+    ):
+        pairs = [
+            [query, doc["content"]]
+            for doc in retrieved_docs
+        ]
+
+        scores = self.model.predict(
+            pairs
+        )
+
+        for doc, score in zip(
+            retrieved_docs,
+            scores,
+        ):
+            doc["rerank_score"] = float(score)
+
+        reranked = sorted(
+            retrieved_docs,
+            key=lambda x: x["rerank_score"],
+            reverse=True,
+        )
+
+        return reranked[:top_k]
+```
+
+---
+
+# Retrieval Pipeline
+
+```text id="5aj0zk"
+Query
+  ↓
+Embedding
+  ↓
+ANN Search
+  ↓
+Metadata Filter
+  ↓
+Hybrid Search
+  ↓
+Reranker
+  ↓
+Top Contexts
+```
+
+---
+
+# 7. CONTEXT COMPRESSION
+
+Problem:
+
+```text id="7dm2k9"
+Too many retrieved chunks
+```
+
+LLM context window expensive.
+
+---
+
+# Production Solution
+
+Use:
+
+* reranking
+* deduplication
+* summarization
+* context compression
+
+Keep only:
+
+```text id="8d6m14"
+top high-quality chunks
+```
+
+---
+
+# 8. OBSERVABILITY
+
+Production retrieval systems track:
+
+| Metric              | Why               |
+| ------------------- | ----------------- |
+| Recall@K            | retrieval quality |
+| latency             | performance       |
+| cache hit rate      | efficiency        |
+| token usage         | cost              |
+| hallucination rate  | safety            |
+| retrieval precision | grounding         |
+
+---
+
+# 9. SCALING TO BILLIONS OF VECTORS
+
+Real enterprise systems use:
+
+* sharding
+* distributed ANN
+* GPU retrieval
+* Kafka ingestion
+* async pipelines
+
+---
+
+# Popular Production Vector Databases
+
+| Database | Company               |
+| -------- | --------------------- |
+| pgvector | PostgreSQL extension  |
+| Pinecone | managed vector DB     |
+| Weaviate | OSS vector DB         |
+| Qdrant   | high-performance ANN  |
+| Milvus   | distributed vector DB |
+
+---
+
+# Interview-Level Concepts You Must Know
+
+## Exact Search vs ANN
+
+```text id="49qsmq"
+Exact = accurate but slow
+ANN = slightly approximate but very fast
+```
+
+---
+
+# HNSW
+
+Hierarchical graph-based ANN.
+
+Very common in production.
+
+---
+
+# IVF
+
+Clusters vectors first.
+
+Speeds search further.
+
+---
+
+# Cosine Similarity
+
+Measures vector angle similarity.
+
+Central equation:
+
+\text{cosine similarity}(A,B)=\frac{A\cdot B}{|A||B|}
+
+Higher similarity:
+
+```text id="zjxzbw"
+more semantically related
+```
+
+---
+
+# Final Production Flow
+
+```text id="13ef9c"
+User Query
+    ↓
+Embedding Cache
+    ↓
+Query Embedding
+    ↓
+ANN Vector Search
+    ↓
+Metadata Filtering
+    ↓
+Hybrid Retrieval
+    ↓
+Reranking
+    ↓
+Context Compression
+    ↓
+Prompt Builder
+    ↓
+LLM
+    ↓
+Grounded Response
+```
