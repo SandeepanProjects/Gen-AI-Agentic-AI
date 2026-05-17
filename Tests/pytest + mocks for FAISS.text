@@ -1,0 +1,257 @@
+Good—this is exactly the kind of thing senior ML engineers actually need in production.
+
+FAISS is hard to test because:
+
+* it’s native (C++)
+* it depends on vector indexes
+* it’s non-deterministic at scale
+* building real indexes is slow
+
+So in unit tests, you **never test FAISS directly**.
+
+Instead you **mock FAISS behavior**.
+
+---
+
+# 🧠 1. What we are solving
+
+We want to test:
+
+```text
+CandidateGenerator → uses FAISS → returns item IDs
+```
+
+But in tests we replace FAISS with a fake object:
+
+```text
+FAISS (real) ❌
+FAISS (mock) ✔
+```
+
+---
+
+# 🧪 2. Your Production Code (for context)
+
+```python
+# ann_index.py
+import faiss
+import numpy as np
+
+class ANNIndex:
+    def __init__(self, dim=64):
+        self.index = faiss.IndexHNSWFlat(dim, 32)
+
+    def build(self, embeddings: np.ndarray):
+        self.index.add(embeddings)
+
+    def search(self, query, top_k=10):
+        _, indices = self.index.search(query, top_k)
+        return indices[0]
+```
+
+---
+
+# 🧪 3. Unit Test Strategy with Mocking
+
+We replace:
+
+```text
+ANNIndex.search()
+```
+
+with a **fake predictable function**
+
+---
+
+# 🧪 4. Pytest + Mock Example (FAISS Mocked)
+
+## 📁 `tests/test_retrieval_mock.py`
+
+```python
+import numpy as np
+from unittest.mock import MagicMock
+from app.retrieval.candidate_generator import CandidateGenerator
+```
+
+---
+
+## 🧪 Step 1: Create fake ANN index
+
+```python
+def test_candidate_generator_with_mocked_faiss():
+
+    # Fake FAISS index
+    mock_index = MagicMock()
+
+    # FAISS normally returns (distances, indices)
+    mock_index.search.return_value = (
+        np.array([[0.1, 0.2]]),   # distances
+        np.array([[10, 20]])      # item IDs
+    )
+```
+
+---
+
+## 🧪 Step 2: Inject mock into generator
+
+```python
+    class MockANNWrapper:
+        def search(self, query, top_k=10):
+            return mock_index.search(query, top_k)[1][0]
+```
+
+---
+
+## 🧪 Step 3: Replace real FAISS
+
+```python
+    cg = CandidateGenerator()
+    cg.index = MockANNWrapper()
+```
+
+---
+
+## 🧪 Step 4: Run test
+
+```python
+    embedding = np.random.rand(64)
+
+    results = cg.generate(embedding)
+
+    assert results == np.array([10, 20])
+```
+
+---
+
+# 🧠 5. What this test proves
+
+✔ CandidateGenerator logic works
+✔ FAISS dependency is isolated
+✔ Output parsing is correct
+✔ No need for real vector index
+
+---
+
+# 🚀 6. Cleaner Production-Grade Mock (Better Design)
+
+Instead of monkey patching, seniors use **dependency injection**
+
+---
+
+## 🔧 Better CandidateGenerator design
+
+```python
+class CandidateGenerator:
+
+    def __init__(self, ann_index):
+        self.index = ann_index
+
+    def generate(self, embedding):
+        return self.index.search(
+            embedding.reshape(1, -1),
+            top_k=10
+        )
+```
+
+---
+
+## 🧪 Now test becomes VERY clean
+
+```python
+def test_candidate_generator_clean_mock():
+
+    mock_index = MagicMock()
+
+    mock_index.search.return_value = [1, 2, 3]
+
+    cg = CandidateGenerator(mock_index)
+
+    result = cg.generate(np.random.rand(64))
+
+    assert result == [1, 2, 3]
+```
+
+---
+
+# 🧠 7. Why Seniors Prefer This Approach
+
+Because it gives:
+
+## ✔ Fast tests (no FAISS build)
+
+## ✔ Deterministic output
+
+## ✔ Easy CI/CD
+
+## ✔ No native dependency issues
+
+## ✔ Isolated logic testing
+
+---
+
+# 🚨 8. Common Mistakes (Important)
+
+### ❌ Don’t do this in unit tests:
+
+```python
+faiss.IndexHNSWFlat()
+```
+
+Why:
+
+* slow
+* unstable
+* hard to debug
+* CI breaks easily
+
+---
+
+### ❌ Don’t test “similarity correctness”
+
+That belongs to:
+
+* offline evaluation
+* ranking metrics (NDCG, Recall@K)
+
+---
+
+# 🧠 9. Senior-Level Testing Layers
+
+For FAISS systems:
+
+| Layer       | Test Type              |
+| ----------- | ---------------------- |
+| Unit        | mock FAISS ✔           |
+| Integration | real FAISS small index |
+| System      | full pipeline          |
+| Performance | latency + recall       |
+
+---
+
+# 🔥 10. Real Production Insight (FAANG-style)
+
+In systems like YouTube:
+
+They:
+
+* mock ANN in unit tests
+* use tiny FAISS indexes in integration tests
+* run full ANN only in staging
+
+---
+
+# 🚀 If you want next level
+
+I can show you:
+
+### 🔥 Real FAISS integration test (tiny index)
+
+### 🔥 pytest fixtures for ML pipelines
+
+### 🔥 CI pipeline for recommendation system
+
+### 🔥 mock Redis + Kafka together
+
+### 🔥 full ML testing architecture (FAANG style)
+
+Just say 👍
